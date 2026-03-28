@@ -23,4 +23,4 @@ COPY --from=build /app/packages ./packages
 COPY --from=build /app/services/auth-service ./services/auth-service
 COPY --from=build /app/dist ./dist
 EXPOSE 8081
-CMD ["node", "dist/services/auth-service/src/main.js"]
+CMD ["sh", "-c", "npm run prisma:push -w @erp/auth-service && node dist/services/auth-service/src/main.js"]

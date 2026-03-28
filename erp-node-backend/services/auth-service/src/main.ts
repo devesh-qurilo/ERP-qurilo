@@ -5,28 +5,30 @@ import { createLogger } from "@erp/shared-logger";
 
 import { sendJson } from "./common/json.js";
 import { getAuthConfig } from "./config/env.js";
-import { InMemoryRefreshTokenRepository } from "./repositories/refresh-token.repository.js";
-import { InMemoryUserRepository } from "./repositories/user.repository.js";
+import { getPrismaClient } from "./lib/prisma.js";
 import { handleAuthRoutes } from "./modules/auth/auth.controller.js";
 import { getHealthResponse } from "./modules/health/health.controller.js";
 import { handleInternalRoutes } from "./modules/internal/internal.controller.js";
 import { handleTranslateRoutes } from "./modules/translate/translate.controller.js";
+import { PrismaRefreshTokenRepository } from "./repositories/refresh-token.repository.js";
+import { PrismaUserRepository } from "./repositories/user.repository.js";
 import { AuthService } from "./services/auth.service.js";
 import { ConsoleMailService } from "./services/mail.service.js";
-import { PlaceholderPasswordService } from "./services/password.service.js";
+import { BcryptPasswordService } from "./services/password.service.js";
 import { TokenService } from "./services/token.service.js";
 import { TranslateService } from "./services/translate.service.js";
 
 const config = getAuthConfig();
 const logger = createLogger(config.serviceName);
+const prisma = getPrismaClient();
 
 const storageAdapter = new CloudinaryStorageAdapter(config.cloudinary);
 void storageAdapter;
 
 const authService = new AuthService(
-  new InMemoryUserRepository(),
-  new InMemoryRefreshTokenRepository(),
-  new PlaceholderPasswordService(),
+  new PrismaUserRepository(prisma),
+  new PrismaRefreshTokenRepository(prisma),
+  new BcryptPasswordService(),
   new TokenService(config.jwtSecret),
   new ConsoleMailService(config.adminEmails)
 );
@@ -69,3 +71,10 @@ server.listen(config.port, () => {
     databaseConfigured: Boolean(config.databaseUrl)
   });
 });
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    void prisma.$disconnect();
+    server.close();
+  });
+}
