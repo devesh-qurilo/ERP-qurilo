@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "@erp/shared-config": ["packages/shared-config/src/index.ts"],
+      "@erp/shared-auth": ["packages/shared-auth/src/index.ts"],
+      "@erp/shared-logger": ["packages/shared-logger/src/index.ts"],
+      "@erp/shared-storage": ["packages/shared-storage/src/index.ts"]
+    },
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "types": ["node"],
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "sourceMap": true,
+    "outDir": "dist"
+  }
+}

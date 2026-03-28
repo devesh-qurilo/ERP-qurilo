@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: erp-node-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: erp_auth
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: erp-node-auth-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      AUTH_PORT: 8081
+      AUTH_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/erp_auth?schema=public
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-replace-me}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-replace-me}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-replace-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-me}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-replace-me}
+      AUTH_ADMIN_EMAILS: ${AUTH_ADMIN_EMAILS:-admin@example.com}
+      GOOGLE_TRANSLATE_API_KEY: ${GOOGLE_TRANSLATE_API_KEY:-disabled}
+    ports:
+      - "8081:8081"
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: services/gateway-service/Dockerfile
+    container_name: erp-node-gateway-service
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+    env_file:
+      - .env
+    environment:
+      GATEWAY_PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:-replace-me}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-replace-me}
+      AUTH_SERVICE_URL: http://auth-service:8081
+      EMPLOYEE_SERVICE_URL: http://employee-service:8083
+      CLIENT_SERVICE_URL: http://client-service:8084
+      LEAD_SERVICE_URL: http://lead-service:8085
+      PROJECT_SERVICE_URL: http://project-service:8086
+      CHAT_SERVICE_URL: http://chat-service:8087
+      FINANCE_SERVICE_URL: http://finance-service:8088
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
+

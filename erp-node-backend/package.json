@@ -1,0 +1,24 @@
+{
+  "name": "erp-node-backend",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev:gateway": "npm run dev -w @erp/gateway-service",
+    "dev:auth": "npm run dev -w @erp/auth-service",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

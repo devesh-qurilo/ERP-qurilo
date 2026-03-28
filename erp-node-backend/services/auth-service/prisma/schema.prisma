@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("AUTH_DATABASE_URL")
+}
+
+model User {
+  id         BigInt    @id @default(autoincrement())
+  employeeId String    @unique @map("employee_id")
+  password   String
+  role       String
+  email      String?   @unique
+  active     Boolean   @default(true)
+  otp        String?
+  otpExpiry  DateTime? @map("otp_expiry")
+
+  @@map("app_user")
+}
+
+model RefreshToken {
+  id         BigInt   @id @default(autoincrement())
+  token      String   @unique
+  employeeId String   @map("employee_id")
+  expiry     DateTime
+  active     Boolean  @default(true)
+
+  @@map("refresh_token")
+}
+
