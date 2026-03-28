@@ -1,4 +1,5 @@
 import type { Department, Designation, Employee, PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 import { HttpError } from "../common/errors.js";
 import type { DepartmentCreateDto, DepartmentUpdateDto } from "../modules/department/dto.js";
@@ -48,12 +49,18 @@ export class EmployeeService {
     const receiveEmailNotification = request.receiveEmailNotification ?? true;
     const plainPassword = request.password?.trim() || null;
 
+    if (loginAllowed && !plainPassword) {
+      throw new HttpError(400, "password is required when loginAllowed is true");
+    }
+
+    await this.ensureRelatedEntitiesExist(request);
+
     const employee = await this.prisma.employee.create({
       data: {
         employeeId,
         name,
         email,
-        password: plainPassword,
+        password: plainPassword ? await hashPassword(plainPassword) : null,
         profilePictureUrl: request.profilePictureUrl?.trim() || null,
         gender: request.gender?.trim() || null,
         birthday: toDate(request.birthday),
@@ -156,12 +163,18 @@ export class EmployeeService {
     const nextLoginAllowed = request.loginAllowed ?? existingEmployee.loginAllowed;
     const nextPassword = request.password?.trim();
 
+    if (!existingEmployee.loginAllowed && nextLoginAllowed && !nextPassword) {
+      throw new HttpError(400, "password is required when enabling login");
+    }
+
+    await this.ensureRelatedEntitiesExist(request);
+
     const updatedEmployee = await this.prisma.employee.update({
       where: { employeeId: existingEmployee.employeeId },
       data: {
         name: request.name?.trim() ?? existingEmployee.name,
         email: nextEmail,
-        password: nextPassword ?? existingEmployee.password,
+        password: nextPassword ? await hashPassword(nextPassword) : existingEmployee.password,
         profilePictureUrl: normalizeOptionalString(request.profilePictureUrl, existingEmployee.profilePictureUrl),
         gender: normalizeOptionalString(request.gender, existingEmployee.gender),
         birthday: request.birthday !== undefined ? toDate(request.birthday) : existingEmployee.birthday,
@@ -284,6 +297,10 @@ export class EmployeeService {
       throw new HttpError(400, "departmentName is required");
     }
 
+    if (dto.parentDepartmentId !== undefined && dto.parentDepartmentId !== null) {
+      await this.ensureDepartmentExists(dto.parentDepartmentId);
+    }
+
     const department = await this.prisma.department.create({
       data: {
         departmentName: dto.departmentName.trim(),
@@ -300,6 +317,14 @@ export class EmployeeService {
   }
 
   async updateDepartment(id: number, dto: DepartmentUpdateDto): Promise<Record<string, unknown>> {
+    if (dto.parentDepartmentId !== undefined && dto.parentDepartmentId === id) {
+      throw new HttpError(400, "Department cannot be parent of itself");
+    }
+
+    if (dto.parentDepartmentId !== undefined && dto.parentDepartmentId !== null) {
+      await this.ensureDepartmentExists(dto.parentDepartmentId);
+    }
+
     const department = await this.prisma.department.update({
       where: { id: BigInt(id) },
       data: {
@@ -359,6 +384,10 @@ export class EmployeeService {
       throw new HttpError(400, "designationName is required");
     }
 
+    if (dto.parentDesignationId !== undefined && dto.parentDesignationId !== null) {
+      await this.ensureDesignationExists(dto.parentDesignationId);
+    }
+
     const designation = await this.prisma.designation.create({
       data: {
         designationName: dto.designationName.trim(),
@@ -375,6 +404,14 @@ export class EmployeeService {
   }
 
   async updateDesignation(id: number, dto: DesignationUpdateDto): Promise<Record<string, unknown>> {
+    if (dto.parentDesignationId !== undefined && dto.parentDesignationId === id) {
+      throw new HttpError(400, "Designation cannot be parent of itself");
+    }
+
+    if (dto.parentDesignationId !== undefined && dto.parentDesignationId !== null) {
+      await this.ensureDesignationExists(dto.parentDesignationId);
+    }
+
     const designation = await this.prisma.designation.update({
       where: { id: BigInt(id) },
       data: {
@@ -410,6 +447,42 @@ export class EmployeeService {
     }
 
     return employee;
+  }
+
+  private async ensureRelatedEntitiesExist(request: EmployeeRequestDto): Promise<void> {
+    if (request.departmentId !== undefined && request.departmentId !== null) {
+      await this.ensureDepartmentExists(request.departmentId);
+    }
+
+    if (request.designationId !== undefined && request.designationId !== null) {
+      await this.ensureDesignationExists(request.designationId);
+    }
+
+    if (request.reportingToId) {
+      await this.findEmployeeOrThrow(request.reportingToId);
+    }
+  }
+
+  private async ensureDepartmentExists(id: number): Promise<void> {
+    const department = await this.prisma.department.findUnique({
+      where: { id: BigInt(id) },
+      select: { id: true }
+    });
+
+    if (!department) {
+      throw new HttpError(404, "Department not found");
+    }
+  }
+
+  private async ensureDesignationExists(id: number): Promise<void> {
+    const designation = await this.prisma.designation.findUnique({
+      where: { id: BigInt(id) },
+      select: { id: true }
+    });
+
+    if (!designation) {
+      throw new HttpError(404, "Designation not found");
+    }
   }
 }
 
@@ -486,4 +559,8 @@ function normalizeOptionalString(incoming: string | null | undefined, fallback: 
   }
 
   return incoming?.trim() || null;
+}
+
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
 }
