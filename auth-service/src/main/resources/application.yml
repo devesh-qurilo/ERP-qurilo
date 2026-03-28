@@ -1,0 +1,52 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: auth-service
+
+  datasource:
+    url: ${DB_URL_AUTH}
+    username: ${user}
+    password: ${password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+  mail:
+    host: ${EMAIL_HOST}
+    port: ${EMAIL_PORT}
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+  auth:
+    admin:
+      emails: ${ADMIN_EMAILS}
+  thymeleaf:
+    enabled: true
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+jwt:
+  secret: ${JWT_SECRET}
+internal:
+  api:
+    key: ${INTERNAL_API_KEY}
+google:
+  api:
+    key: xxxxx

@@ -1,0 +1,101 @@
+#server:
+#  port: 8080
+#spring:
+#  main:
+#    web-application-type: reactive
+#  application:
+#    name: gateway-service
+#  cloud:
+#    gateway:
+#      discovery:
+#        locator:
+#          enabled: true
+#          lower-case-service-id: true
+#      routes:
+#        - id: auth-service
+#          uri: lb://auth-service
+#          predicates:
+#            - Path=/auth/**,/internal/auth/**
+#        - id: employee-service
+#          uri: lb://employee-service
+#          predicates:
+#            - Path=/employee/**
+#        - id: admin-service
+#          uri: lb://employee-service
+#          predicates:
+#            - Path=/admin/**
+#eureka:
+#  client:
+#    service-url:
+#      defaultZone: http://localhost:8761/eureka/
+#jwt:
+#  secret: 4f8b9d2c-7a3f-4d8a-9f2b-ea1c7b6a5d9f
+#internal:
+#  api:
+#    key: K3y!9xR7$zTq2Lp8
+server:
+  port: 8080
+spring:
+  main:
+    web-application-type: reactive
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**,/internal/auth/**
+        - id: employee-service
+          uri: lb://employee-service
+          predicates:
+            - Path=/employee/**,/admin/**
+#        - id: admin-service
+#          uri: lb://employee-service
+#          predicates:
+#            - Path=/admin/**
+        - id: client-service
+          uri: lb://client-service
+          predicates:
+            - Path=/clients/**,/internal/clients/**
+        - id:  lead-service
+          uri: lb://lead-service
+          predicates:
+            - Path=/leads/**,/deals/**,/stages/**
+#        - id: project-service
+#          uri: lb://project-service
+#          predicates:
+#            - Path=/project/**,/task/task-stages/**,/tasks/**,/timesheets/**,/api/projects/**,/api/labels/**,/projects/**,/files/**,/notes/**,/me/**,/weekly-timesheets/**,/api/recurring-tasks/**
+        - id: project-service
+          uri: lb://project-service
+          predicates:
+            - Path=/project/**,/status/**,/task/**,/tasks/**,/timesheets/**,/api/projects/**,/api/labels/**,/projects/**,/files/**,/notes/**,/me/**,/weekly-timesheets/**,/api/recurring-tasks/**,/stages/**
+#          filters:
+#            - StripPrefix=1
+
+        - id: chat-service
+          uri: lb://chat-service
+          predicates:
+            - Path=/api/chat/**,/scenario-guide/**,/websocket-read-demo/**,/websocket-online-demo/**,/websocket-typing-demo/**,/ws-chat/**
+        - id: finance-servic
+          uri: lb://finance-service
+          predicates:
+            - Path=/api/invoices/**,/api/credit-notes/**,/api/payments/**,/api/payment-gateways/**,/api/invoice/**
+
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+jwt:
+  secret: ${JWT_SECRET}
+  #:4f8b9d2c-7a3f-4d8a-9f2b-ea1c7b6a5d9f
+internal:
+  api:
+    key: ${INTERNAL_API_KEY}
+#K3y!9xR7$zTq2Lp8

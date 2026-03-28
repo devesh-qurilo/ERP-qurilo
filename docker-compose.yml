@@ -1,0 +1,175 @@
+version: '3.8'
+
+services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    ports:
+      - "80:80"         # local & VPS dono par IP se access
+      # - "443:443"     # (SSL lagana ho to enable karenge)
+    depends_on:
+      - gateway-service
+      - eureka-server
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    container_name: eureka-server
+    expose:
+      - "8761"
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    expose:
+      - "8081"
+    env_file:
+      - .env
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - INTERNAL_API_KEY=K3y!9xR7zTq2Lp8
+#      - JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true
+    depends_on:
+      - eureka-server
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    container_name: gateway-service
+    expose:
+      - "8080"
+    env_file:
+      - .env
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+      - auth-service
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  finance-service:
+    build:
+      context: ./finance-servic
+      dockerfile: Dockerfile
+    container_name: finance-service
+    expose:
+      - "8088"
+    env_file:
+      - .env
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  chat-service:
+    build:
+      context: ./chat-service
+      dockerfile: Dockerfile
+    container_name: chat-service
+    expose:
+      - "8087"
+    env_file:
+      - .env
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  project_service:
+    build:
+      context: ./project_service
+      dockerfile: Dockerfile
+    container_name: project_service
+    expose:
+      - "8086"
+    env_file:
+      - .env
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  lead-service:
+    build:
+      context: ./lead-service
+      dockerfile: Dockerfile
+    container_name: lead-service
+    expose:
+      - "8085"
+    env_file:
+      - .env
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  client-service:
+    build:
+      context: ./client-service
+      dockerfile: Dockerfile
+    container_name: client-service
+    expose:
+      - "8084"
+    env_file:
+      - .env
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+  employee-service:
+    build:
+      context: .
+      dockerfile: employee-service/Dockerfile
+    container_name: employee-service
+    hostname: employee-service
+    expose:
+      - "8083"
+    env_file:
+      - .env
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - INTERNAL_API_KEY=K3y!9xR7zTq2Lp8
+      - AUTH_SERVICE_BASE_URL=http://auth-service:8081
+    depends_on:
+      - eureka-server
+      - auth-service
+    networks:
+      - erp-network
+    restart: unless-stopped
+
+networks:
+  erp-network:
+    driver: bridge

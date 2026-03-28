@@ -1,0 +1,65 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: lead-service
+  datasource:
+    url: ${DB_URL_LEAD}
+    username: ${user}
+    password: ${password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  main:
+    allow-bean-definition-overriding: true
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://eureka-server:8761/eureka/}
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+        loggerLevel: basic
+
+jwt:
+  secret: ${JWT_SECRET}
+
+internal:
+  api:
+    key: ${INTERNAL_API_KEY}
+
+supabase:
+  url: ${SUPABASE_URL}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
+  bucket: ${SUPABASE_BUCKET}
+
+employee-service:
+  url: http://EMPLOYEE-SERVICE:8083
+client-service:
+  url: http://CLIENT-SERVICE:8084
+
+logging:
+  level:
+    com.erp.lead_service: DEBUG
+    com.erp.lead_service.client.EmployeeServiceClient: DEBUG
+
+  spring:
+   servlet:
+     multipart:
+      max-file-size: 10MB
+     max-request-size: 10MB

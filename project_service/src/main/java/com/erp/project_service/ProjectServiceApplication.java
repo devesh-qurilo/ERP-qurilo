@@ -1,0 +1,28 @@
+package com.erp.project_service;
+
+import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.scheduling.annotation.EnableAsync;
+
+@SpringBootApplication
+@EnableDiscoveryClient
+@EnableFeignClients
+@EnableAsync
+public class ProjectServiceApplication {
+
+	public static void main(String[] args) {
+        Dotenv dotenv = Dotenv.configure()
+                .directory("../")        // repo root relative to gateway-service
+                .filename(".env")
+                .ignoreIfMissing()       // don't crash if absent
+                .load();
+
+        // expose to Spring placeholders like ${JWT_SECRET}
+        dotenv.entries().forEach(e -> System.setProperty(e.getKey(), e.getValue()));
+        SpringApplication.run(ProjectServiceApplication.class, args);
+	}
+
+}

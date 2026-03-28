@@ -1,0 +1,32 @@
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::staticFieldBase has been called by com.google.inject.internal.aop.HiddenClassDefiner (file:/opt/homebrew/Cellar/maven/3.9.11/libexec/lib/guice-5.1.0-classes.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.inject.internal.aop.HiddenClassDefiner
+WARNING: sun.misc.Unsafe::staticFieldBase will be removed in a future release
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.erp:employee-service >----------------------
+[INFO] Building employee-service 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.5.5:run (default-cli) > test-compile @ employee-service >>>
+Downloading from central: https://repo.maven.apache.org/maven2/com/erp/auth-service/1.0.0/auth-service-1.0.0.pom
+[WARNING] The POM for com.erp:auth-service:jar:1.0.0 is missing, no dependency information available
+Downloading from central: https://repo.maven.apache.org/maven2/com/erp/auth-service/1.0.0/auth-service-1.0.0.jar
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  2.324 s
+[INFO] Finished at: 2025-09-17T15:07:37+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal on project employee-service: Could not resolve dependencies for project com.erp:employee-service:jar:0.0.1-SNAPSHOT
+[ERROR] dependency: com.erp:auth-service:jar:1.0.0 (compile)
+[ERROR] 	Could not find artifact com.erp:auth-service:jar:1.0.0 in central (https://repo.maven.apache.org/maven2)
+[ERROR] 
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException

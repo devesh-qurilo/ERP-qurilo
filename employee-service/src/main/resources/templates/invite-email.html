@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>You're Invited! 🎉</title>
+    <style>
+        body { font-family: Arial, sans-serif; color:#333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border:1px solid #eee; border-radius:8px; }
+        .header { background:#f7f9fc; padding: 12px; border-radius:6px; margin-bottom:14px; }
+        .cta { display:inline-block; padding:10px 16px; border-radius:6px; text-decoration:none; font-weight:600; }
+        .personal { background:#fbfbfd; border-left:4px solid #2b9cff; padding:12px; margin-top:14px; }
+        .footer { font-size:12px; color:#777; margin-top:18px; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h2>Invitation to join Us</h2>
+        <p>We’re thrilled to welcome you aboard and look forward to the energy, expertise, and ideas you’ll bring to our organization.</p>
+    </div>
+
+    <!-- Predefined body part (change any text here from backend template) -->
+    <p>Hello,</p>
+    <p>We are inviting you to join our workspace. Please click the button below to set up your account and complete your profile.</p>
+
+    <!-- CTA / login link -->
+    <p>
+        <a th:href="${loginLink}" class="cta">Accept Invitation &amp; Login</a>
+    </p>
+
+    <!-- Here we show the custom message entered in frontend (Message field) -->
+    <div class="personal" th:if="${customMessage}">
+        <strong>Personal message from <span th:text="${inviterName}">HR</span>:</strong>
+        <div th:utext="${customMessage}">This is the custom message area</div>
+    </div>
+    <p>
+        <strong>Your Employee ID:</strong>
+        <span th:text="${employeeId}">EMP-XXXX</span>
+    </p>
+    <p>
+        <strong>Your Password:</strong>
+        <span>password123</span>
+    </p>
+    <div class="footer">
+        <p>If you didn't expect this email, ignore it or contact <span th:text="${supportEmail}">support</span>.</p>
+        <p>— Qurilo Solution</p>
+    </div>
+</div>
+</body>
+</html>
