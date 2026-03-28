@@ -36,7 +36,7 @@ export class AuthService {
   ) {}
 
   async login(request: LoginRequestDto): Promise<LoginResponseDto> {
-    const employeeId = request.employeeId.trim();
+    const employeeId = normalizeEmployeeId(request.employeeId);
     const user = await this.users.findByEmployeeId(employeeId);
 
     if (!user) {
@@ -47,6 +47,13 @@ export class AuthService {
 
     if (!passwordMatches) {
       throw new HttpError(401, "Invalid credentials");
+    }
+
+    if (this.passwordService.needsUpgrade(user.password)) {
+      await this.users.save({
+        ...user,
+        password: await this.passwordService.hash(request.password)
+      });
     }
 
     const tokens = this.tokenService.generateTokenPair(user.employeeId, user.role);
@@ -69,7 +76,7 @@ export class AuthService {
   }
 
   async manualRegister(request: ManualRegisterRequestDto): Promise<Record<string, string>> {
-    const employeeId = request.employeeId.trim();
+    const employeeId = normalizeEmployeeId(request.employeeId);
     const existingUser = await this.users.findByEmployeeId(employeeId);
 
     if (existingUser) {
@@ -91,7 +98,7 @@ export class AuthService {
   }
 
   async sendOtp(request: OtpRequestDto): Promise<Record<string, string>> {
-    const user = await this.users.findByEmployeeId(request.employeeId);
+    const user = await this.users.findByEmployeeId(normalizeEmployeeId(request.employeeId));
 
     if (!user || user.email?.toLowerCase() !== request.email.toLowerCase()) {
       throw new HttpError(404, "Invalid employeeId or email", {
@@ -114,7 +121,7 @@ export class AuthService {
   }
 
   async verifyOtp(request: OtpVerifyRequestDto): Promise<Record<string, string>> {
-    const user = await this.users.findByEmployeeId(request.employeeId);
+    const user = await this.users.findByEmployeeId(normalizeEmployeeId(request.employeeId));
 
     if (!user || user.otp !== request.otp || !user.otpExpiry || user.otpExpiry.getTime() <= Date.now()) {
       throw new HttpError(401, "Invalid or expired OTP", {
@@ -127,7 +134,7 @@ export class AuthService {
   }
 
   async resetPassword(request: ResetPasswordRequestDto): Promise<Record<string, string>> {
-    const user = await this.users.findByEmployeeId(request.employeeId.trim());
+    const user = await this.users.findByEmployeeId(normalizeEmployeeId(request.employeeId));
 
     if (!user || !user.otp || !user.otpExpiry || user.otpExpiry.getTime() <= Date.now()) {
       throw new HttpError(401, "OTP not verified or expired", {
@@ -210,7 +217,7 @@ export class AuthService {
   }
 
   async registerInternal(body: Record<string, string | undefined>): Promise<Record<string, string>> {
-    const employeeId = body.employeeId?.trim();
+    const employeeId = body.employeeId ? normalizeEmployeeId(body.employeeId) : undefined;
     const password = body.password;
     const role = body.role?.trim().toUpperCase() ?? "ROLE_EMPLOYEE";
     const email = body.email?.trim().toLowerCase();
@@ -279,7 +286,7 @@ export class AuthService {
   }
 
   async deleteUser(employeeId: string): Promise<Record<string, string>> {
-    const deleted = await this.users.deleteByEmployeeId(employeeId.trim());
+    const deleted = await this.users.deleteByEmployeeId(normalizeEmployeeId(employeeId));
 
     if (!deleted) {
       throw new HttpError(404, "User not found", {
@@ -322,8 +329,7 @@ export class AuthService {
       });
     }
 
-    const user = await this.users.findByEmployeeId(employeeId.trim());
-
+    const user = await this.users.findByEmployeeId(normalizeEmployeeId(employeeId));
     if (!user) {
       throw new HttpError(404, "User not found", {
         status: "error",
@@ -335,3 +341,6 @@ export class AuthService {
   }
 }
 
+function normalizeEmployeeId(employeeId: string): string {
+  return employeeId.trim().toUpperCase();
+}
