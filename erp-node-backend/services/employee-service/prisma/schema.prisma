@@ -7,6 +7,26 @@ datasource db {
   url      = env("EMPLOYEE_DATABASE_URL")
 }
 
+enum LeaveType {
+  CASUAL
+  SICK
+  EARNED
+}
+
+enum DurationType {
+  FULL_DAY
+  MULTIPLE
+  HALF_DAY
+  SECOND_HALF
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 model Department {
   id               BigInt       @id @default(autoincrement())
   departmentName   String       @unique @map("department_name")
@@ -68,6 +88,93 @@ model Employee {
   designation               Designation? @relation(fields: [designationId], references: [id], onDelete: SetNull)
   reportingTo               Employee?    @relation("EmployeeHierarchy", fields: [reportingToId], references: [employeeId], onDelete: SetNull)
   directReports             Employee[]   @relation("EmployeeHierarchy")
+  attendances               Attendance[] @relation("EmployeeAttendance")
+  markedAttendances         Attendance[] @relation("AttendanceMarkedBy")
+  attendanceActivities      AttendanceActivity[]
+  leaves                    Leave[]      @relation("EmployeeLeaves")
+  approvedLeaves            Leave[]      @relation("LeaveApprovedBy")
+  leaveQuotas               LeaveQuota[]
 
   @@map("employees")
+}
+
+model Attendance {
+  id                  BigInt                @id @default(autoincrement())
+  employeeId          String                @map("employee_id")
+  date                DateTime              @db.Date
+  clockInTime         DateTime?             @map("clock_in_time") @db.Time(0)
+  clockInLocation     String?               @map("clock_in_location")
+  clockInWorkingFrom  String?               @map("clock_in_working_from")
+  clockOutTime        DateTime?             @map("clock_out_time") @db.Time(0)
+  clockOutLocation    String?               @map("clock_out_location")
+  clockOutWorkingFrom String?               @map("clock_out_working_from")
+  late                Boolean               @default(false) @map("is_late")
+  halfDay             Boolean               @default(false) @map("is_half_day")
+  overwritten         Boolean               @default(false) @map("is_overwritten")
+  isPresent           Boolean               @default(true) @map("is_present")
+  markedById          String?               @map("marked_by_id")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  employee            Employee              @relation("EmployeeAttendance", fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  markedBy            Employee?             @relation("AttendanceMarkedBy", fields: [markedById], references: [employeeId], onDelete: SetNull)
+  activities          AttendanceActivity[]
+
+  @@unique([employeeId, date])
+  @@map("attendances")
+}
+
+model AttendanceActivity {
+  id           BigInt      @id @default(autoincrement())
+  employeeId   String      @map("employee_id")
+  date         DateTime    @db.Date
+  type         String
+  time         DateTime    @db.Time(0)
+  location     String?
+  workingFrom  String?     @map("working_from")
+  attendanceId BigInt?     @map("attendance_id")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  employee     Employee    @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  attendance   Attendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, date], map: "idx_activity_employee_date")
+  @@map("attendance_activities")
+}
+
+model Leave {
+  id              BigInt       @id @default(autoincrement())
+  employeeId      String       @map("employee_id")
+  leaveType       LeaveType    @map("leave_type")
+  durationType    DurationType @map("duration_type")
+  startDate       DateTime?    @map("start_date") @db.Date
+  endDate         DateTime?    @map("end_date") @db.Date
+  singleDate      DateTime?    @map("single_date") @db.Date
+  reason          String?
+  status          LeaveStatus
+  rejectionReason String?      @map("rejection_reason")
+  approvedById    String?      @map("approved_by_id")
+  approvedAt      DateTime?    @map("approved_at")
+  rejectedAt      DateTime?    @map("rejected_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  isPaid          Boolean      @default(false) @map("is_paid")
+  employee        Employee     @relation("EmployeeLeaves", fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  approvedBy      Employee?    @relation("LeaveApprovedBy", fields: [approvedById], references: [employeeId], onDelete: SetNull)
+
+  @@map("leaves")
+}
+
+model LeaveQuota {
+  id              BigInt   @id @default(autoincrement())
+  employeeId      String   @map("employee_id")
+  leaveType       String   @map("leaveType")
+  year            Int      @default(2026)
+  totalLeaves     Int
+  monthlyLimit    Int?
+  totalTaken      Int      @default(0)
+  overUtilized    Int      @default(0)
+  remainingLeaves Int      @default(0)
+  employee        Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@unique([employeeId, leaveType, year])
+  @@map("leave_quota")
 }

@@ -7,6 +7,7 @@ import type { DesignationCreateDto, DesignationUpdateDto } from "../modules/desi
 import type { EmployeeRequestDto } from "../modules/employee/dto.js";
 import { generateFinalEmployeeId } from "../utils/employee-id.js";
 import { AuthSyncService } from "./auth-sync.service.js";
+import type { AttendanceLeaveService } from "./attendance-leave.service.js";
 
 type EmployeeWithRelations = Employee & {
   department: Department | null;
@@ -23,7 +24,8 @@ const employeeInclude = {
 export class EmployeeService {
   constructor(
     private readonly prisma: PrismaClient,
-    private readonly authSyncService: AuthSyncService
+    private readonly authSyncService: AuthSyncService,
+    private readonly attendanceLeaveService?: AttendanceLeaveService
   ) {}
 
   async createEmployee(request: EmployeeRequestDto): Promise<Record<string, unknown>> {
@@ -95,6 +97,8 @@ export class EmployeeService {
     if (loginAllowed && plainPassword) {
       await this.authSyncService.register(employee.employeeId, plainPassword, employee.role, employee.email);
     }
+
+    await this.attendanceLeaveService?.assignDefaultLeaveQuotas(employee.employeeId);
 
     return mapEmployee(employee);
   }

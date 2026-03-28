@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 
 import { createLogger } from "@erp/shared-logger";
 
+import { handleAttendanceLeaveRoutes } from "./modules/attendance/controller.js";
 import { sendJson } from "./common/http.js";
 import { getEmployeeConfig } from "./config/env.js";
 import { getPrismaClient } from "./lib/prisma.js";
@@ -9,6 +10,7 @@ import { handleDepartmentRoutes } from "./modules/department/controller.js";
 import { handleDesignationRoutes } from "./modules/designation/controller.js";
 import { handleEmployeeRoutes } from "./modules/employee/controller.js";
 import { getHealthResponse } from "./modules/health/controller.js";
+import { AttendanceLeaveService } from "./services/attendance-leave.service.js";
 import { AuthSyncService } from "./services/auth-sync.service.js";
 import { EmployeeService } from "./services/employee.service.js";
 
@@ -16,9 +18,11 @@ const config = getEmployeeConfig();
 const logger = createLogger(config.serviceName);
 const prisma = getPrismaClient();
 
+const attendanceLeaveService = new AttendanceLeaveService(prisma);
 const employeeService = new EmployeeService(
   prisma,
-  new AuthSyncService(config.authServiceUrl, config.internalApiKey)
+  new AuthSyncService(config.authServiceUrl, config.internalApiKey),
+  attendanceLeaveService
 );
 
 const server = createServer(async (request, response) => {
@@ -33,6 +37,10 @@ const server = createServer(async (request, response) => {
     }
 
     if (await handleDesignationRoutes(request, response, employeeService, config.jwtSecret)) {
+      return;
+    }
+
+    if (await handleAttendanceLeaveRoutes(request, response, attendanceLeaveService, config.jwtSecret)) {
       return;
     }
 
