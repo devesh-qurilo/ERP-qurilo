@@ -66,6 +66,27 @@ services:
     ports:
       - "8080:8080"
 
+  employee-service:
+    build:
+      context: .
+      dockerfile: services/employee-service/Dockerfile
+    container_name: erp-node-employee-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      EMPLOYEE_PORT: 8083
+      EMPLOYEE_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/erp_employee?schema=public
+      JWT_SECRET: ${JWT_SECRET:-replace-me}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-replace-me}
+      AUTH_SERVICE_URL: http://auth-service:8081
+    ports:
+      - "8083:8083"
+
 volumes:
   postgres_data:
-

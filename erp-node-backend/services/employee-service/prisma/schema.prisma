@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("EMPLOYEE_DATABASE_URL")
+}
+
+model Department {
+  id               BigInt       @id @default(autoincrement())
+  departmentName   String       @unique @map("department_name")
+  parentId         BigInt?      @map("parent_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  parentDepartment Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  childDepartments Department[] @relation("DepartmentHierarchy")
+  employees        Employee[]
+
+  @@map("departments")
+}
+
+model Designation {
+  id                BigInt        @id @default(autoincrement())
+  designationName   String        @unique @map("designation_name")
+  parentId          BigInt?       @map("parent_designation_id")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  parentDesignation Designation?  @relation("DesignationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  childDesignations Designation[] @relation("DesignationHierarchy")
+  employees         Employee[]
+
+  @@map("designations")
+}
+
+model Employee {
+  employeeId                String       @id @map("employee_id")
+  name                      String
+  email                     String       @unique
+  password                  String?
+  profilePictureUrl         String?      @map("profile_picture_url")
+  gender                    String?
+  birthday                  DateTime?    @db.Date
+  bloodGroup                String?      @map("blood_group")
+  joiningDate               DateTime?    @map("joining_date") @db.Date
+  language                  String?
+  country                   String?
+  mobile                    String?      @unique
+  address                   String?
+  about                     String?
+  departmentId              BigInt?      @map("department_id")
+  designationId             BigInt?      @map("designation_id")
+  reportingToId             String?      @map("reporting_to_id")
+  role                      String       @default("ROLE_EMPLOYEE")
+  loginAllowed              Boolean      @default(true) @map("login_allowed")
+  receiveEmailNotification  Boolean      @default(true) @map("receive_email_notification")
+  hourlyRate                Float?       @map("hourly_rate")
+  slackMemberId             String?      @map("slack_member_id")
+  skills                    String[]
+  probationEndDate          DateTime?    @map("probation_end_date") @db.Date
+  noticePeriodStartDate     DateTime?    @map("notice_period_start_date") @db.Date
+  noticePeriodEndDate       DateTime?    @map("notice_period_end_date") @db.Date
+  employmentType            String?      @map("employment_type")
+  maritalStatus             String?      @map("marital_status")
+  businessAddress           String?      @map("business_address")
+  officeShift               String?      @map("office_shift")
+  active                    Boolean      @default(true)
+  createdAt                 DateTime     @default(now()) @map("created_at")
+  department                Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  designation               Designation? @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  reportingTo               Employee?    @relation("EmployeeHierarchy", fields: [reportingToId], references: [employeeId], onDelete: SetNull)
+  directReports             Employee[]   @relation("EmployeeHierarchy")
+
+  @@map("employees")
+}
