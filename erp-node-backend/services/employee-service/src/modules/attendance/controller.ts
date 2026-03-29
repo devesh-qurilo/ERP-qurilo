@@ -53,6 +53,11 @@ export async function handleAttendanceLeaveRoutes(
       return true;
     }
 
+    if (request.method === "GET" && pathname.match(/^\/employee\/attendance\/\d+$/)) {
+      sendJson(response, 200, await attendanceLeaveService.getAttendanceById(Number(pathname.split("/").at(-1))));
+      return true;
+    }
+
     if (request.method === "GET" && pathname === "/employee/attendance/between") {
       const auth = getAuthContext(request, jwtSecret);
       requireRole(auth, "ROLE_ADMIN");
@@ -140,6 +145,53 @@ export async function handleAttendanceLeaveRoutes(
           employeeId,
           url.searchParams.get("from") ?? "",
           url.searchParams.get("to") ?? ""
+        )
+      );
+      return true;
+    }
+
+    if (request.method === "GET" && pathname.match(/^\/employee\/attendance\/[^/]+\/all-saved$/)) {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      const employeeId = pathname.replace("/employee/attendance/", "").replace("/all-saved", "");
+      sendJson(response, 200, await attendanceLeaveService.getAllSavedAttendanceForEmployee(employeeId));
+      return true;
+    }
+
+    if (request.method === "GET" && pathname === "/employee/attendance/wfh") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      sendJson(response, 200, await attendanceLeaveService.getWorkFromHomeOnDate(url.searchParams.get("date") ?? ""));
+      return true;
+    }
+
+    if (request.method === "GET" && pathname === "/employee/attendance/wfh/between") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      sendJson(
+        response,
+        200,
+        await attendanceLeaveService.getWorkFromHomeBetween(
+          url.searchParams.get("from") ?? "",
+          url.searchParams.get("to") ?? ""
+        )
+      );
+      return true;
+    }
+
+    if (request.method === "PATCH" && pathname === "/employee/attendance/edit") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      const body = await readJsonBody<AttendancePayloadDto>(request);
+      sendJson(
+        response,
+        200,
+        await attendanceLeaveService.editAttendanceForEmployeeDate(
+          url.searchParams.get("employeeId") ?? "",
+          url.searchParams.get("date") ?? "",
+          body,
+          (url.searchParams.get("overwrite") ?? "true") !== "false",
+          url.searchParams.get("markedBy") ?? auth.employeeId
         )
       );
       return true;

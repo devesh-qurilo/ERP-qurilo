@@ -1,6 +1,8 @@
 import type {
   Attendance,
   AttendanceActivity,
+  Department,
+  Designation,
   Employee,
   Leave,
   LeaveQuota,
@@ -25,6 +27,14 @@ const DEFAULT_MONTHLY_LIMIT = 2;
 
 type AttendanceWithEmployee = Attendance & {
   employee: Employee;
+  markedBy: Employee | null;
+};
+
+type AttendanceWithEmployeeDetails = Attendance & {
+  employee: Employee & {
+    department: Department | null;
+    designation: Designation | null;
+  };
   markedBy: Employee | null;
 };
 
@@ -132,6 +142,43 @@ export class AttendanceLeaveService {
 
   async getAllSavedAttendance(): Promise<Record<string, unknown>[]> {
     const attendances = await this.prisma.attendance.findMany({
+      include: {
+        employee: true,
+        markedBy: true
+      },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }]
+    });
+
+    return attendances.map((attendance) => mapAttendance(attendance));
+  }
+
+  async getAttendanceById(attendanceId: number): Promise<Record<string, unknown>> {
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: BigInt(attendanceId) },
+      include: {
+        employee: {
+          include: {
+            department: true,
+            designation: true
+          }
+        },
+        markedBy: true
+      }
+    });
+
+    if (!attendance) {
+      throw new HttpError(404, `Attendance not found with id: ${attendanceId}`);
+    }
+
+    return mapAttendanceDetailed(attendance);
+  }
+
+  async getAllSavedAttendanceForEmployee(employeeId: string): Promise<Record<string, unknown>[]> {
+    const normalizedEmployeeId = normalizeEmployeeId(employeeId);
+    await this.ensureEmployee(normalizedEmployeeId);
+
+    const attendances = await this.prisma.attendance.findMany({
+      where: { employeeId: normalizedEmployeeId },
       include: {
         employee: true,
         markedBy: true
@@ -343,6 +390,62 @@ export class AttendanceLeaveService {
     return calendar;
   }
 
+  async getWorkFromHomeOnDate(date: string): Promise<Record<string, unknown>[]> {
+    const targetDate = requireDate(date, "date is required");
+
+    const attendances = await this.prisma.attendance.findMany({
+      where: {
+        date: targetDate,
+        OR: [
+          { clockInWorkingFrom: { contains: "HOME", mode: "insensitive" } },
+          { clockOutWorkingFrom: { contains: "HOME", mode: "insensitive" } }
+        ]
+      },
+      include: {
+        employee: {
+          include: {
+            department: true,
+            designation: true
+          }
+        },
+        markedBy: true
+      },
+      orderBy: { employeeId: "asc" }
+    });
+
+    return attendances.map((attendance) => mapAttendanceDetailed(attendance));
+  }
+
+  async getWorkFromHomeBetween(from: string, to: string): Promise<Record<string, unknown>[]> {
+    const fromDate = requireDate(from, "from is required");
+    const toDate = requireDate(to, "to is required");
+
+    const attendances = await this.prisma.attendance.findMany({
+      where: {
+        date: {
+          gte: fromDate,
+          lte: toDate
+        },
+        OR: [
+          { clockInWorkingFrom: { contains: "HOME", mode: "insensitive" } },
+          { clockOutWorkingFrom: { contains: "HOME", mode: "insensitive" } }
+        ]
+      },
+      include: {
+        employee: {
+          include: {
+            department: true,
+            designation: true
+          }
+        },
+        markedBy: true
+      },
+      orderBy: [{ date: "asc" }, { employeeId: "asc" }]
+    });
+
+    return attendances.map((attendance) => mapAttendanceDetailed(attendance));
+  }
+
   async attendanceExists(employeeId: string, date: string): Promise<boolean> {
     const normalizedEmployeeId = normalizeEmployeeId(employeeId);
     const targetDate = requireDate(date, "date is required");
@@ -384,6 +487,31 @@ export class AttendanceLeaveService {
         where: { id: attendance.id }
       });
     });
+  }
+
+  async editAttendanceForEmployeeDate(
+    employeeId: string,
+    date: string,
+    payload: AttendancePayloadDto,
+    overwrite = true,
+    markedById?: string | null
+  ): Promise<Record<string, unknown>> {
+    const normalizedEmployeeId = normalizeEmployeeId(employeeId);
+    const targetDate = requireDate(date, "date is required");
+    await this.ensureEmployee(normalizedEmployeeId);
+
+    const markedByEmployee = markedById
+      ? await this.prisma.employee.findUnique({
+          where: { employeeId: normalizeEmployeeId(markedById) },
+          select: { employeeId: true }
+        })
+      : null;
+
+    await this.prisma.$transaction((tx) =>
+      markAdminAttendance(tx, normalizedEmployeeId, targetDate, payload, overwrite, markedByEmployee?.employeeId ?? null)
+    );
+
+    return { message: "Attendance updated" };
   }
 
   async applyLeave(employeeId: string, request: LeaveApplyDto): Promise<Record<string, unknown>> {
@@ -847,6 +975,15 @@ function mapAttendance(attendance: AttendanceWithEmployee): Record<string, unkno
     holiday: false,
     leave: false,
     isPresent: attendance.isPresent
+  };
+}
+
+function mapAttendanceDetailed(attendance: AttendanceWithEmployeeDetails): Record<string, unknown> {
+  return {
+    ...mapAttendance(attendance),
+    profilePictureUrl: attendance.employee.profilePictureUrl ?? null,
+    departmentName: attendance.employee.department?.departmentName ?? null,
+    designationName: attendance.employee.designation?.designationName ?? null
   };
 }
 
