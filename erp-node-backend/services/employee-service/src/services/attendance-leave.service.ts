@@ -16,8 +16,10 @@ import { DurationType, LeaveStatus, LeaveType } from "@prisma/client";
 import { HttpError } from "../common/errors.js";
 import type {
   AdminLeaveApplyDto,
+  AttendanceCsvImportRowDto,
   AttendancePayloadDto,
   BulkAttendanceRequestDto,
+  ImportResultDto,
   LeaveApplyDto,
   LeaveStatusUpdateDto,
   MonthAttendanceRequestDto
@@ -265,6 +267,55 @@ export class AttendanceLeaveService {
       },
       fallbackMarkedById
     );
+  }
+
+  async importAttendanceFromCsv(csvText: string, markedById?: string | null, overwrite = false): Promise<ImportResultDto[]> {
+    const results: ImportResultDto[] = [];
+
+    if (!csvText.trim()) {
+      return [{ rowNumber: 0, status: "ERROR", reason: "Empty or missing file", createdId: null }];
+    }
+
+    const lines = csvText
+      .replace(/^\uFEFF/, "")
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0);
+
+    if (!lines.length) {
+      return [{ rowNumber: 0, status: "ERROR", reason: "Empty or missing file", createdId: null }];
+    }
+
+    const headers = parseCsvLine(lines[0]);
+    const markedByEmployee = markedById
+      ? await this.prisma.employee.findUnique({
+          where: { employeeId: normalizeEmployeeId(markedById) },
+          select: { employeeId: true }
+        })
+      : null;
+
+    for (let index = 1; index < lines.length; index += 1) {
+      const rowNumber = index + 1;
+
+      try {
+        const row = mapFieldsToAttendanceImport(parseCsvLine(lines[index]), headers);
+        const result = await this.processAttendanceImportRow(
+          row,
+          rowNumber,
+          markedByEmployee?.employeeId ?? null,
+          overwrite
+        );
+        results.push(result);
+      } catch (error) {
+        results.push({
+          rowNumber,
+          status: "ERROR",
+          reason: `Unhandled: ${error instanceof Error ? error.message : "Unknown error"}`,
+          createdId: null
+        });
+      }
+    }
+
+    return results;
   }
 
   async getAttendanceSummary(employeeId: string, from: string, to: string): Promise<Record<string, unknown>> {
@@ -923,6 +974,116 @@ export class AttendanceLeaveService {
 
     return quota;
   }
+
+  private async processAttendanceImportRow(
+    row: AttendanceCsvImportRowDto,
+    rowNumber: number,
+    markedByEmployeeId: string | null,
+    overwrite: boolean
+  ): Promise<ImportResultDto> {
+    const employeeId = row.employeeId?.trim() ? normalizeEmployeeId(row.employeeId) : null;
+    const dateRaw = row.date?.trim() ?? null;
+
+    if (!employeeId) {
+      return { rowNumber, status: "SKIPPED", reason: "Missing employeeId", createdId: null };
+    }
+
+    if (!dateRaw) {
+      return { rowNumber, status: "SKIPPED", reason: "Missing date", createdId: null };
+    }
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { employeeId },
+      select: { employeeId: true }
+    });
+
+    if (!employee) {
+      return { rowNumber, status: "SKIPPED", reason: `Employee not found: ${employeeId}`, createdId: null };
+    }
+
+    const parsedDate = parseFlexibleDate(dateRaw);
+
+    if (!parsedDate) {
+      return { rowNumber, status: "ERROR", reason: `Invalid date format: ${dateRaw}`, createdId: null };
+    }
+
+    const clockInTime = parseFlexibleTime(row.clockInTime);
+    const clockOutTime = parseFlexibleTime(row.clockOutTime);
+    const late = parseBooleanFlexible(row.late);
+    const halfDay = parseBooleanFlexible(row.halfDay);
+
+    const existingAttendance = await this.prisma.attendance.findUnique({
+      where: {
+        employeeId_date: {
+          employeeId,
+          date: parsedDate
+        }
+      }
+    });
+
+    if (existingAttendance && !overwrite) {
+      return {
+        rowNumber,
+        status: "SKIPPED",
+        reason: "Attendance exists and overwrite=false",
+        createdId: null
+      };
+    }
+
+    const savedAttendance = existingAttendance
+      ? await this.prisma.attendance.update({
+          where: { id: existingAttendance.id },
+          data: {
+            clockInTime: clockInTime ?? existingAttendance.clockInTime,
+            clockOutTime: clockOutTime ?? existingAttendance.clockOutTime,
+            clockInLocation: row.clockInLocation?.trim() ? row.clockInLocation.trim() : existingAttendance.clockInLocation,
+            clockOutLocation: row.clockOutLocation?.trim() ? row.clockOutLocation.trim() : existingAttendance.clockOutLocation,
+            clockInWorkingFrom: row.clockInWorkingFrom?.trim()
+              ? row.clockInWorkingFrom.trim()
+              : existingAttendance.clockInWorkingFrom,
+            clockOutWorkingFrom: row.clockOutWorkingFrom?.trim()
+              ? row.clockOutWorkingFrom.trim()
+              : existingAttendance.clockOutWorkingFrom,
+            late: late ?? existingAttendance.late,
+            halfDay: halfDay ?? existingAttendance.halfDay,
+            overwritten: overwrite || existingAttendance.overwritten,
+            isPresent:
+              overwrite ||
+              Boolean(
+                clockInTime ??
+                  clockOutTime ??
+                  existingAttendance.clockInTime ??
+                  existingAttendance.clockOutTime ??
+                  existingAttendance.isPresent
+              ),
+            markedById: markedByEmployeeId ?? existingAttendance.markedById
+          }
+        })
+      : await this.prisma.attendance.create({
+          data: {
+            employeeId,
+            date: parsedDate,
+            clockInTime,
+            clockOutTime,
+            clockInLocation: row.clockInLocation?.trim() || null,
+            clockOutLocation: row.clockOutLocation?.trim() || null,
+            clockInWorkingFrom: row.clockInWorkingFrom?.trim() || null,
+            clockOutWorkingFrom: row.clockOutWorkingFrom?.trim() || null,
+            late: late ?? false,
+            halfDay: halfDay ?? false,
+            overwritten: overwrite,
+            isPresent: overwrite || Boolean(clockInTime || clockOutTime),
+            markedById: markedByEmployeeId
+          }
+        });
+
+    return {
+      rowNumber,
+      status: "CREATED",
+      reason: null,
+      createdId: Number(savedAttendance.id)
+    };
+  }
 }
 
 async function markAdminAttendance(
@@ -1259,4 +1420,251 @@ function expandLeaveDateKeys(leave: Leave): string[] {
   }
 
   return [];
+}
+
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let currentField = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+
+    if (character === '"') {
+      if (inQuotes && line[index + 1] === '"') {
+        currentField += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (character === "," && !inQuotes) {
+      fields.push(currentField.trim());
+      currentField = "";
+      continue;
+    }
+
+    currentField += character;
+  }
+
+  fields.push(currentField.trim());
+  return fields;
+}
+
+function mapFieldsToAttendanceImport(fields: string[], headers: string[]): AttendanceCsvImportRowDto {
+  const headerIndexMap = createHeaderIndexMap(headers);
+
+  return {
+    employeeId: getFieldValue(fields, headerIndexMap, [
+      "employeeid",
+      "employee id",
+      "empid",
+      "emp id",
+      "employee",
+      "emp_id",
+      "employee_id"
+    ]),
+    date: getFieldValue(fields, headerIndexMap, ["date", "attendance date", "day", "attendance_date"]),
+    clockInTime: getFieldValue(fields, headerIndexMap, [
+      "clockintime",
+      "clock in time",
+      "in time",
+      "clock_in_time",
+      "clock_in",
+      "intime",
+      "checkin",
+      "check_in"
+    ]),
+    clockOutTime: getFieldValue(fields, headerIndexMap, [
+      "clockouttime",
+      "clock out time",
+      "out time",
+      "clock_out_time",
+      "clock_out",
+      "outtime",
+      "checkout",
+      "check_out"
+    ]),
+    clockInLocation: getFieldValue(fields, headerIndexMap, [
+      "clock_in_location",
+      "clock in location",
+      "in location",
+      "in_location",
+      "checkinlocation",
+      "check_in_location"
+    ]),
+    clockOutLocation: getFieldValue(fields, headerIndexMap, [
+      "clock_out_location",
+      "clock out location",
+      "out location",
+      "out_location",
+      "checkoutlocation",
+      "check_out_location"
+    ]),
+    clockInWorkingFrom: getFieldValue(fields, headerIndexMap, [
+      "clock_in_working_from",
+      "working from in",
+      "working_from_in",
+      "in_working_from",
+      "workfrom_in",
+      "work_from_in"
+    ]),
+    clockOutWorkingFrom: getFieldValue(fields, headerIndexMap, [
+      "clock_out_working_from",
+      "working from out",
+      "working_from_out",
+      "out_working_from",
+      "workfrom_out",
+      "work_from_out"
+    ]),
+    late: getFieldValue(fields, headerIndexMap, ["late", "is_late", "is late", "late_mark", "late_status"]),
+    halfDay: getFieldValue(fields, headerIndexMap, [
+      "halfday",
+      "half day",
+      "is_half_day",
+      "is half day",
+      "half_day",
+      "halfday_status"
+    ])
+  };
+}
+
+function createHeaderIndexMap(headers: string[]): Map<string, number> {
+  const headerIndexMap = new Map<string, number>();
+
+  headers.forEach((header, index) => {
+    const normalized = normalizeHeaderKey(header);
+    const simplified = header.trim().toLowerCase().replaceAll(/[^a-z0-9]/g, "");
+    headerIndexMap.set(normalized, index);
+    headerIndexMap.set(simplified, index);
+  });
+
+  return headerIndexMap;
+}
+
+function getFieldValue(fields: string[], headerIndexMap: Map<string, number>, possibleHeaders: string[]): string | null {
+  for (const header of possibleHeaders) {
+    const index = headerIndexMap.get(normalizeHeaderKey(header));
+
+    if (index !== undefined && index < fields.length) {
+      const value = fields[index]?.trim();
+
+      if (value) {
+        return value;
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeHeaderKey(header: string | null | undefined): string {
+  return (header ?? "").trim().toLowerCase().replaceAll(/\s+/g, "").replaceAll("_", "");
+}
+
+function parseFlexibleDate(value?: string | null): Date | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const input = value.trim();
+  const isoDateMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (isoDateMatch) {
+    return new Date(Date.UTC(Number(isoDateMatch[1]), Number(isoDateMatch[2]) - 1, Number(isoDateMatch[3])));
+  }
+
+  const dayFirstDashMatch = input.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+
+  if (dayFirstDashMatch) {
+    return new Date(Date.UTC(Number(dayFirstDashMatch[3]), Number(dayFirstDashMatch[2]) - 1, Number(dayFirstDashMatch[1])));
+  }
+
+  const slashMatch = input.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+  if (slashMatch) {
+    const first = Number(slashMatch[1]);
+    const second = Number(slashMatch[2]);
+    const year = Number(slashMatch[3]);
+    const month = first > 12 ? second : first;
+    const day = first > 12 ? first : second;
+    return new Date(Date.UTC(year, month - 1, day));
+  }
+
+  const parsed = new Date(input);
+  return Number.isNaN(parsed.getTime()) ? null : startOfDay(parsed);
+}
+
+function parseFlexibleTime(value?: string | null): Date | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const input = value.trim();
+  const standardMatch = input.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+
+  if (standardMatch) {
+    return buildTime(Number(standardMatch[1]), Number(standardMatch[2]), Number(standardMatch[3] ?? 0));
+  }
+
+  const meridiemMatch = input.match(/^(\d{1,2}):(\d{2})\s*([ap]m)$/i);
+
+  if (meridiemMatch) {
+    let hours = Number(meridiemMatch[1]) % 12;
+    const minutes = Number(meridiemMatch[2]);
+
+    if (meridiemMatch[3].toLowerCase() === "pm") {
+      hours += 12;
+    }
+
+    return buildTime(hours, minutes, 0);
+  }
+
+  const digits = input.replaceAll(/\D+/g, "");
+
+  if (digits.length === 4) {
+    return buildTime(Number(digits.slice(0, 2)), Number(digits.slice(2, 4)), 0);
+  }
+
+  return null;
+}
+
+function parseBooleanFlexible(value?: string | null): boolean | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (["true", "yes", "1", "y"].includes(normalized)) {
+    return true;
+  }
+
+  if (["false", "no", "0", "n"].includes(normalized)) {
+    return false;
+  }
+
+  return null;
+}
+
+function buildTime(hours: number, minutes: number, seconds: number): Date | null {
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    Number.isNaN(seconds) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59 ||
+    seconds < 0 ||
+    seconds > 59
+  ) {
+    return null;
+  }
+
+  const date = new Date();
+  date.setHours(hours, minutes, seconds, 0);
+  return date;
 }

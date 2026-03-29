@@ -1,9 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { HttpError } from "../../common/errors.js";
-import { readJsonBody, sendJson } from "../../common/http.js";
+import { parseMultipartFormData, readJsonBody, sendJson } from "../../common/http.js";
 import type {
   AdminLeaveApplyDto,
+  ImportResultDto,
   AttendancePayloadDto,
   BulkAttendanceRequestDto,
   LeaveApplyDto,
@@ -44,6 +45,29 @@ export async function handleAttendanceLeaveRoutes(
       requireRole(auth, "ROLE_ADMIN");
       const body = await readJsonBody<MonthAttendanceRequestDto>(request);
       sendJson(response, 200, await attendanceLeaveService.markAttendanceForMonth(body, auth.employeeId));
+      return true;
+    }
+
+    if (request.method === "POST" && pathname === "/employee/attendance/import/csv") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      const multipart = await parseMultipartFormData(request);
+      const uploadedFile = multipart.files.file?.[0];
+
+      if (!uploadedFile || !uploadedFile.data.length) {
+        throw new HttpError(400, "file is required");
+      }
+
+      const overwriteValue = multipart.fields.overwrite?.[0]?.trim().toLowerCase() ?? "false";
+      const overwrite = overwriteValue === "true" || overwriteValue === "1" || overwriteValue === "yes";
+      const results = (await attendanceLeaveService.importAttendanceFromCsv(
+        uploadedFile.data.toString("utf8"),
+        auth.employeeId,
+        overwrite
+      )) as ImportResultDto[];
+
+      const hasFileError = results.some((result) => result.rowNumber === 0 && result.status === "ERROR");
+      sendJson(response, hasFileError ? 400 : 200, results);
       return true;
     }
 

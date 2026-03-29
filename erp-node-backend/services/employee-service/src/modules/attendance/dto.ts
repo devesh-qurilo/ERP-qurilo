@@ -45,3 +45,23 @@ export interface AdminLeaveApplyDto extends LeaveApplyDto {
   employeeIds?: string[];
   status?: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 }
+
+export interface AttendanceCsvImportRowDto {
+  employeeId?: string | null;
+  date?: string | null;
+  clockInTime?: string | null;
+  clockOutTime?: string | null;
+  clockInLocation?: string | null;
+  clockOutLocation?: string | null;
+  clockInWorkingFrom?: string | null;
+  clockOutWorkingFrom?: string | null;
+  late?: string | null;
+  halfDay?: string | null;
+}
+
+export interface ImportResultDto {
+  rowNumber: number;
+  status: "CREATED" | "SKIPPED" | "ERROR";
+  reason: string | null;
+  createdId: number | null;
+}

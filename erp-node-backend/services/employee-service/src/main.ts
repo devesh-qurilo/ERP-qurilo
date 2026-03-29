@@ -4,6 +4,7 @@ import { createLogger } from "@erp/shared-logger";
 
 import { handleAttendanceLeaveRoutes } from "./modules/attendance/controller.js";
 import { sendJson } from "./common/http.js";
+import { HttpError } from "./common/errors.js";
 import { getEmployeeConfig } from "./config/env.js";
 import { getPrismaClient } from "./lib/prisma.js";
 import { handleCompanyRoutes } from "./modules/company/controller.js";
@@ -101,6 +102,11 @@ const server = createServer(async (request, response) => {
     logger.error("Unhandled employee-service error", {
       error: error instanceof Error ? error.message : "Unknown error"
     });
+    if (error instanceof HttpError) {
+      sendJson(response, error.statusCode, { message: error.message });
+      return;
+    }
+
     sendJson(response, 500, { message: "Internal server error" });
   }
 });
