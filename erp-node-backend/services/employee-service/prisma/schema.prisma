@@ -232,8 +232,22 @@ model Leave {
   isPaid          Boolean      @default(false) @map("is_paid")
   employee        Employee     @relation("EmployeeLeaves", fields: [employeeId], references: [employeeId], onDelete: Cascade)
   approvedBy      Employee?    @relation("LeaveApprovedBy", fields: [approvedById], references: [employeeId], onDelete: SetNull)
+  documents       LeaveDocument[]
 
   @@map("leaves")
+}
+
+model LeaveDocument {
+  id         BigInt   @id @default(autoincrement())
+  leaveId     BigInt  @map("leave_id")
+  filename    String
+  url         String
+  mime        String?
+  size        BigInt?
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+  leave       Leave   @relation(fields: [leaveId], references: [id], onDelete: Cascade)
+
+  @@map("leave_documents")
 }
 
 model LeaveQuota {

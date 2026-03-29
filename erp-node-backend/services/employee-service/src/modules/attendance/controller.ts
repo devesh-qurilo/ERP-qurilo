@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { HttpError } from "../../common/errors.js";
 import { readJsonBody, sendJson } from "../../common/http.js";
 import type {
+  AdminLeaveApplyDto,
   AttendancePayloadDto,
   BulkAttendanceRequestDto,
   LeaveApplyDto,
@@ -204,6 +205,14 @@ export async function handleAttendanceLeaveRoutes(
       return true;
     }
 
+    if (request.method === "POST" && pathname === "/employee/api/leaves/admin/apply") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      const body = await readJsonBody<AdminLeaveApplyDto>(request);
+      sendJson(response, 200, await attendanceLeaveService.applyLeavesForEmployees(body, auth.employeeId));
+      return true;
+    }
+
     if (request.method === "GET" && pathname === "/employee/api/leaves/my-leaves") {
       const auth = getAuthContext(request, jwtSecret);
       sendJson(response, 200, await attendanceLeaveService.getMyLeaves(auth.employeeId));
@@ -234,6 +243,18 @@ export async function handleAttendanceLeaveRoutes(
     }
 
     if (request.method === "DELETE" && pathname.startsWith("/employee/api/leaves/")) {
+      if (pathname.match(/^\/employee\/api\/leaves\/\d+\/documents\/\d+$/)) {
+        const auth = getAuthContext(request, jwtSecret);
+        requireRole(auth, "ROLE_ADMIN");
+        const parts = pathname.split("/");
+        const leaveId = Number(parts[4]);
+        const documentId = Number(parts[6]);
+        await attendanceLeaveService.deleteLeaveDocument(leaveId, documentId);
+        response.writeHead(204);
+        response.end();
+        return true;
+      }
+
       const auth = getAuthContext(request, jwtSecret);
       const leaveId = Number(pathname.replace("/employee/api/leaves/", ""));
       await attendanceLeaveService.deleteLeave(leaveId, auth.employeeId, auth.roles.includes("ROLE_ADMIN"));
@@ -243,6 +264,14 @@ export async function handleAttendanceLeaveRoutes(
     }
 
     if (request.method === "GET" && pathname.startsWith("/employee/api/leaves/") && pathname !== "/employee/api/leaves/calendar") {
+      if (pathname.startsWith("/employee/api/leaves/employee/")) {
+        const auth = getAuthContext(request, jwtSecret);
+        requireRole(auth, "ROLE_ADMIN");
+        const employeeId = pathname.replace("/employee/api/leaves/employee/", "");
+        sendJson(response, 200, await attendanceLeaveService.getLeavesForEmployee(employeeId));
+        return true;
+      }
+
       const auth = getAuthContext(request, jwtSecret);
       requireRole(auth, "ROLE_EMPLOYEE", "ROLE_ADMIN");
       const leaveId = Number(pathname.replace("/employee/api/leaves/", ""));

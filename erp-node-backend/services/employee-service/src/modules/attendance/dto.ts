@@ -33,9 +33,15 @@ export interface LeaveApplyDto {
   endDate?: string | null;
   singleDate?: string | null;
   reason?: string | null;
+  documentUrls?: string[] | null;
 }
 
 export interface LeaveStatusUpdateDto {
   status?: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   rejectionReason?: string | null;
+}
+
+export interface AdminLeaveApplyDto extends LeaveApplyDto {
+  employeeIds?: string[];
+  status?: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 }

@@ -1,4 +1,5 @@
 import type {
+  LeaveDocument,
   Attendance,
   AttendanceActivity,
   Department,
@@ -14,6 +15,7 @@ import { DurationType, LeaveStatus, LeaveType } from "@prisma/client";
 
 import { HttpError } from "../common/errors.js";
 import type {
+  AdminLeaveApplyDto,
   AttendancePayloadDto,
   BulkAttendanceRequestDto,
   LeaveApplyDto,
@@ -41,6 +43,7 @@ type AttendanceWithEmployeeDetails = Attendance & {
 type LeaveWithPeople = Leave & {
   employee: Employee;
   approvedBy: Employee | null;
+  documents: LeaveDocument[];
 };
 
 export class AttendanceLeaveService {
@@ -534,21 +537,100 @@ export class AttendanceLeaveService {
         singleDate: parseDate(request.singleDate),
         reason: request.reason?.trim() || null,
         status: LeaveStatus.PENDING,
-        isPaid
+        isPaid,
+        documents: request.documentUrls?.length
+          ? {
+              create: request.documentUrls
+                .map((url, index) => url.trim())
+                .filter(Boolean)
+                .map((url, index) => ({
+                  filename: `leave-document-${index + 1}`,
+                  url
+                }))
+            }
+          : undefined
       },
       include: {
         employee: true,
-        approvedBy: true
+        approvedBy: true,
+        documents: true
       }
     });
 
     return mapLeave(savedLeave);
   }
 
+  async applyLeavesForEmployees(request: AdminLeaveApplyDto, adminId: string): Promise<Record<string, unknown>[]> {
+    const employeeIds = request.employeeIds?.map(normalizeEmployeeId).filter(Boolean) ?? [];
+
+    if (!employeeIds.length) {
+      throw new HttpError(400, "employeeIds cannot be empty");
+    }
+
+    const status = request.status ? parseLeaveStatus(request.status) : LeaveStatus.PENDING;
+    const results: Record<string, unknown>[] = [];
+
+    for (const employeeId of employeeIds) {
+      const employee = await this.ensureEmployee(employeeId);
+      const leaveType = parseLeaveType(request.leaveType);
+      const durationType = parseDurationType(request.durationType);
+      validateLeaveRequest(durationType, request);
+      const leaveDays = calculateLeaveDays(durationType, request);
+      const quota = await this.ensureQuota(employee.employeeId, leaveType);
+      const isPaid = quota.remainingLeaves < leaveDays;
+
+      const adminEmployee = await this.prisma.employee.findUnique({
+        where: { employeeId: normalizeEmployeeId(adminId) },
+        select: { employeeId: true }
+      });
+
+      const savedLeave = await this.prisma.$transaction(async (tx) => {
+        const leave = await tx.leave.create({
+          data: {
+            employeeId: employee.employeeId,
+            leaveType,
+            durationType,
+            startDate: parseDate(request.startDate),
+            endDate: parseDate(request.endDate),
+            singleDate: parseDate(request.singleDate),
+            reason: request.reason?.trim() || null,
+            status,
+            isPaid,
+            approvedById: status === LeaveStatus.APPROVED ? adminEmployee?.employeeId ?? null : null,
+            approvedAt: status === LeaveStatus.APPROVED ? new Date() : null,
+            rejectedAt: status === LeaveStatus.REJECTED ? new Date() : null,
+            documents: request.documentUrls?.length
+              ? {
+                  create: request.documentUrls
+                    .map((url) => url.trim())
+                    .filter(Boolean)
+                    .map((url, index) => ({
+                      filename: `leave-document-${index + 1}`,
+                      url
+                    }))
+                }
+              : undefined
+          },
+          include: { employee: true, approvedBy: true, documents: true }
+        });
+
+        if (status === LeaveStatus.APPROVED) {
+          await applyQuotaConsumption(tx, leave);
+        }
+
+        return leave;
+      });
+
+      results.push(mapLeave(savedLeave));
+    }
+
+    return results;
+  }
+
   async getMyLeaves(employeeId: string): Promise<Record<string, unknown>[]> {
     const leaves = await this.prisma.leave.findMany({
       where: { employeeId },
-      include: { employee: true, approvedBy: true },
+      include: { employee: true, approvedBy: true, documents: true },
       orderBy: { createdAt: "desc" }
     });
 
@@ -557,7 +639,7 @@ export class AttendanceLeaveService {
 
   async getAllLeaves(): Promise<Record<string, unknown>[]> {
     const leaves = await this.prisma.leave.findMany({
-      include: { employee: true, approvedBy: true },
+      include: { employee: true, approvedBy: true, documents: true },
       orderBy: { createdAt: "desc" }
     });
 
@@ -567,7 +649,7 @@ export class AttendanceLeaveService {
   async getPendingLeaves(): Promise<Record<string, unknown>[]> {
     const leaves = await this.prisma.leave.findMany({
       where: { status: LeaveStatus.PENDING },
-      include: { employee: true, approvedBy: true },
+      include: { employee: true, approvedBy: true, documents: true },
       orderBy: { createdAt: "desc" }
     });
 
@@ -577,7 +659,7 @@ export class AttendanceLeaveService {
   async updateLeaveStatus(leaveId: number, adminId: string, dto: LeaveStatusUpdateDto): Promise<Record<string, unknown>> {
     const leave = await this.prisma.leave.findUnique({
       where: { id: BigInt(leaveId) },
-      include: { employee: true, approvedBy: true }
+      include: { employee: true, approvedBy: true, documents: true }
     });
 
     if (!leave) {
@@ -613,7 +695,7 @@ export class AttendanceLeaveService {
           approvedAt: nextStatus === LeaveStatus.APPROVED ? new Date() : null,
           rejectedAt: nextStatus === LeaveStatus.REJECTED ? new Date() : null
         },
-        include: { employee: true, approvedBy: true }
+        include: { employee: true, approvedBy: true, documents: true }
       });
     });
 
@@ -644,10 +726,42 @@ export class AttendanceLeaveService {
     });
   }
 
+  async deleteLeaveDocument(leaveId: number, documentId: number): Promise<void> {
+    const leave = await this.prisma.leave.findUnique({
+      where: { id: BigInt(leaveId) },
+      select: { id: true }
+    });
+
+    if (!leave) {
+      throw new HttpError(404, "Leave not found");
+    }
+
+    const document = await this.prisma.leaveDocument.findFirst({
+      where: {
+        id: BigInt(documentId),
+        leaveId: BigInt(leaveId)
+      },
+      select: { id: true }
+    });
+
+    if (!document) {
+      throw new HttpError(404, "Leave document not found");
+    }
+
+    await this.prisma.leaveDocument.delete({
+      where: { id: BigInt(documentId) }
+    });
+  }
+
+  async getLeavesForEmployee(employeeId: string): Promise<Record<string, unknown>[]> {
+    await this.ensureEmployee(employeeId);
+    return this.getMyLeaves(employeeId);
+  }
+
   async getLeaveById(leaveId: number): Promise<Record<string, unknown>> {
     const leave = await this.prisma.leave.findUnique({
       where: { id: BigInt(leaveId) },
-      include: { employee: true, approvedBy: true }
+      include: { employee: true, approvedBy: true, documents: true }
     });
 
     if (!leave) {
@@ -1004,7 +1118,7 @@ function mapLeave(leave: LeaveWithPeople): Record<string, unknown> {
     isPaid: leave.isPaid,
     approvedAt: leave.approvedAt,
     rejectedAt: leave.rejectedAt,
-    documentUrls: [],
+    documentUrls: leave.documents.map((document) => document.url),
     createdAt: leave.createdAt,
     updatedAt: leave.updatedAt
   };
