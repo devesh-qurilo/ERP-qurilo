@@ -98,6 +98,21 @@ model Employee {
   @@map("employees")
 }
 
+model EmployeeInvite {
+  id        BigInt   @id @default(autoincrement())
+  employeeId String  @map("employee_id")
+  email     String
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([employeeId], map: "idx_employee_invites_employee_id")
+  @@index([email], map: "idx_employee_invites_email")
+  @@map("employee_invites")
+}
+
 model Attendance {
   id                  BigInt                @id @default(autoincrement())
   employeeId          String                @map("employee_id")

@@ -10,6 +10,7 @@ import { handleDepartmentRoutes } from "./modules/department/controller.js";
 import { handleDesignationRoutes } from "./modules/designation/controller.js";
 import { handleEmployeeRoutes } from "./modules/employee/controller.js";
 import { getHealthResponse } from "./modules/health/controller.js";
+import { handleInviteRoutes } from "./modules/invite/controller.js";
 import { AttendanceLeaveService } from "./services/attendance-leave.service.js";
 import { AuthSyncService } from "./services/auth-sync.service.js";
 import { EmployeeService } from "./services/employee.service.js";
@@ -22,6 +23,7 @@ const attendanceLeaveService = new AttendanceLeaveService(prisma);
 const employeeService = new EmployeeService(
   prisma,
   new AuthSyncService(config.authServiceUrl, config.internalApiKey),
+  config.jwtSecret,
   attendanceLeaveService
 );
 
@@ -41,6 +43,10 @@ const server = createServer(async (request, response) => {
     }
 
     if (await handleAttendanceLeaveRoutes(request, response, attendanceLeaveService, config.jwtSecret)) {
+      return;
+    }
+
+    if (await handleInviteRoutes(request, response, employeeService, config.jwtSecret)) {
       return;
     }
 

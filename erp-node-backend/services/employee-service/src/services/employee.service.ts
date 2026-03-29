@@ -1,11 +1,14 @@
-import type { Department, Designation, Employee, PrismaClient } from "@prisma/client";
+import { createHmac, randomUUID } from "node:crypto";
+
+import type { Department, Designation, Employee, EmployeeInvite, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 import { HttpError } from "../common/errors.js";
 import type { DepartmentCreateDto, DepartmentUpdateDto } from "../modules/department/dto.js";
 import type { DesignationCreateDto, DesignationUpdateDto } from "../modules/designation/dto.js";
 import type { EmployeeRequestDto } from "../modules/employee/dto.js";
-import { generateFinalEmployeeId } from "../utils/employee-id.js";
+import type { CompleteRegistrationRequestDto, EmployeeInviteRequestDto } from "../modules/invite/dto.js";
+import { generateFinalEmployeeId, generateTempEmployeeId } from "../utils/employee-id.js";
 import { AuthSyncService } from "./auth-sync.service.js";
 import type { AttendanceLeaveService } from "./attendance-leave.service.js";
 
@@ -25,8 +28,210 @@ export class EmployeeService {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly authSyncService: AuthSyncService,
+    private readonly jwtSecret?: string,
     private readonly attendanceLeaveService?: AttendanceLeaveService
   ) {}
+
+  async sendInvite(request: EmployeeInviteRequestDto, invitedByEmployeeId?: string): Promise<Record<string, unknown>> {
+    const email = request.email?.trim().toLowerCase() || request.to?.trim().toLowerCase();
+
+    if (!email) {
+      throw new HttpError(400, "email is required");
+    }
+
+    const existingEmployeeByEmail = await this.prisma.employee.findUnique({
+      where: { email }
+    });
+
+    if (existingEmployeeByEmail && existingEmployeeByEmail.active) {
+      throw new HttpError(409, "Active employee with this email already exists");
+    }
+
+    const employeeId = existingEmployeeByEmail?.employeeId ?? (await this.generateUniqueTempEmployeeId());
+    const inviteToken = randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    await this.prisma.$transaction(async (tx) => {
+      if (!existingEmployeeByEmail) {
+        await tx.employee.create({
+          data: {
+            employeeId,
+            email,
+            name: "TEMP USER",
+            about: "INVITED_USER",
+            password: await hashPassword(randomUUID()),
+            address: "NA",
+            language: "NA",
+            bloodGroup: "NA",
+            country: "NA",
+            gender: "NA",
+            birthday: new Date(),
+            loginAllowed: false,
+            active: false,
+            joiningDate: new Date()
+          }
+        });
+      } else {
+        await tx.employee.update({
+          where: { employeeId },
+          data: {
+            loginAllowed: false,
+            active: false,
+            about: existingEmployeeByEmail.about || "INVITED_USER",
+            name: existingEmployeeByEmail.name || "TEMP USER"
+          }
+        });
+      }
+
+      await tx.employeeInvite.updateMany({
+        where: {
+          email,
+          used: false,
+          expiresAt: { gt: new Date() }
+        },
+        data: {
+          used: true,
+          usedAt: new Date()
+        }
+      });
+
+      await tx.employeeInvite.create({
+        data: {
+          employeeId,
+          email,
+          token: inviteToken,
+          expiresAt
+        }
+      });
+    });
+
+    return {
+      message: "Invite sent",
+      employeeId,
+      email,
+      expiresAt,
+      inviteToken,
+      invitedByEmployeeId: invitedByEmployeeId ?? null
+    };
+  }
+
+  async acceptInvite(token: string): Promise<Record<string, unknown>> {
+    const normalizedToken = token.trim();
+
+    if (!normalizedToken) {
+      throw new HttpError(400, "token is required");
+    }
+
+    const invite = await this.prisma.employeeInvite.findUnique({
+      where: { token: normalizedToken }
+    });
+
+    if (!invite) {
+      throw new HttpError(404, "Invalid token");
+    }
+
+    if (invite.used || invite.expiresAt.getTime() < Date.now()) {
+      throw new HttpError(400, "Invite expired");
+    }
+
+    await this.prisma.employeeInvite.update({
+      where: { id: invite.id },
+      data: {
+        used: true,
+        usedAt: new Date()
+      }
+    });
+
+    return {
+      token: this.signInviteToken(invite.employeeId, invite.email)
+    };
+  }
+
+  async completeRegistration(
+    authorizationHeader: string | undefined,
+    request: CompleteRegistrationRequestDto
+  ): Promise<Record<string, unknown>> {
+    const claims = this.parseInviteAuthorization(authorizationHeader);
+    const name = request.name?.trim();
+    const password = request.password?.trim();
+
+    if (!name || !password) {
+      throw new HttpError(400, "name and password are required");
+    }
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { employeeId: claims.sub }
+    });
+
+    if (!employee) {
+      throw new HttpError(404, "Employee not found");
+    }
+
+    if (employee.active && employee.loginAllowed) {
+      throw new HttpError(409, "Registration already completed");
+    }
+
+    const finalEmployeeId = await this.generateUniqueFinalEmployeeId();
+
+    const updatedEmployee = await this.prisma.employee.update({
+      where: { employeeId: employee.employeeId },
+      data: {
+        employeeId: finalEmployeeId,
+        name,
+        mobile: request.mobile?.trim() || null,
+        gender: request.gender?.trim() || null,
+        birthday: request.birthday ? toDate(request.birthday) : null,
+        address: request.address?.trim() || null,
+        password: await hashPassword(password),
+        loginAllowed: true,
+        active: true
+      }
+    });
+
+    await this.authSyncService.register(finalEmployeeId, password, updatedEmployee.role, updatedEmployee.email);
+    await this.attendanceLeaveService?.assignDefaultLeaveQuotas(finalEmployeeId);
+
+    return {
+      forceLogout: true,
+      employeeId: finalEmployeeId
+    };
+  }
+
+  async changeEmployeeId(employeeId: string, newEmployeeId?: string): Promise<Record<string, string>> {
+    const existingEmployee = await this.findEmployeeOrThrow(employeeId);
+    const normalizedNewEmployeeId = normalizeEmployeeId(newEmployeeId ?? "");
+
+    if (!normalizedNewEmployeeId) {
+      throw new HttpError(400, "newEmployeeId is required");
+    }
+
+    if (existingEmployee.loginAllowed) {
+      throw new HttpError(400, "Cannot change employeeId after login is enabled");
+    }
+
+    const collision = await this.prisma.employee.findUnique({
+      where: { employeeId: normalizedNewEmployeeId },
+      select: { employeeId: true }
+    });
+
+    if (collision) {
+      throw new HttpError(409, "Employee ID already exists");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { employeeId: existingEmployee.employeeId },
+        data: { employeeId: normalizedNewEmployeeId }
+      });
+
+      await tx.employeeInvite.updateMany({
+        where: { employeeId: existingEmployee.employeeId },
+        data: { employeeId: normalizedNewEmployeeId }
+      });
+    });
+
+    return { message: "EmployeeId updated" };
+  }
 
   async createEmployee(request: EmployeeRequestDto): Promise<Record<string, unknown>> {
     const name = request.name?.trim();
@@ -488,6 +693,89 @@ export class EmployeeService {
       throw new HttpError(404, "Designation not found");
     }
   }
+
+  private async generateUniqueTempEmployeeId(): Promise<string> {
+    while (true) {
+      const candidate = generateTempEmployeeId();
+      const existing = await this.prisma.employee.findUnique({
+        where: { employeeId: candidate },
+        select: { employeeId: true }
+      });
+
+      if (!existing) {
+        return candidate;
+      }
+    }
+  }
+
+  private async generateUniqueFinalEmployeeId(): Promise<string> {
+    while (true) {
+      const candidate = normalizeEmployeeId(generateFinalEmployeeId());
+      const existing = await this.prisma.employee.findUnique({
+        where: { employeeId: candidate },
+        select: { employeeId: true }
+      });
+
+      if (!existing) {
+        return candidate;
+      }
+    }
+  }
+
+  private signInviteToken(employeeId: string, email: string): string {
+    if (!this.jwtSecret) {
+      throw new Error("JWT secret is not configured");
+    }
+
+    const claims: InviteTokenClaims = {
+      sub: employeeId,
+      email,
+      temp: true,
+      type: "invite",
+      iat: Date.now(),
+      exp: Date.now() + 30 * 60 * 1000
+    };
+
+    const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
+    const signature = createHmac("sha256", this.jwtSecret).update(payload).digest("base64url");
+    return `${payload}.${signature}`;
+  }
+
+  private parseInviteAuthorization(authorizationHeader?: string): InviteTokenClaims {
+    if (!authorizationHeader?.startsWith("Bearer ")) {
+      throw new HttpError(401, "Authentication required");
+    }
+
+    const token = authorizationHeader.slice("Bearer ".length).trim();
+    const [payload, signature] = token.split(".");
+
+    if (!payload || !signature || !this.jwtSecret) {
+      throw new HttpError(401, "Malformed token");
+    }
+
+    const expectedSignature = createHmac("sha256", this.jwtSecret).update(payload).digest("base64url");
+
+    if (expectedSignature !== signature) {
+      throw new HttpError(401, "Invalid token signature");
+    }
+
+    const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as InviteTokenClaims;
+
+    if (!claims.temp || claims.type !== "invite" || claims.exp < Date.now()) {
+      throw new HttpError(401, "Invite token expired");
+    }
+
+    return claims;
+  }
+}
+
+interface InviteTokenClaims {
+  sub: string;
+  email: string;
+  temp: true;
+  type: "invite";
+  iat: number;
+  exp: number;
 }
 
 function mapEmployee(employee: EmployeeWithRelations): Record<string, unknown> {
