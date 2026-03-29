@@ -113,6 +113,17 @@ model EmployeeInvite {
   @@map("employee_invites")
 }
 
+model Holiday {
+  id              BigInt   @id @default(autoincrement())
+  date            DateTime @unique @db.Date
+  day             String
+  occasion        String
+  isDefaultWeekly Boolean  @default(false) @map("is_default_weekly")
+  isActive        Boolean  @default(true) @map("is_active")
+
+  @@map("holidays")
+}
+
 model Attendance {
   id                  BigInt                @id @default(autoincrement())
   employeeId          String                @map("employee_id")

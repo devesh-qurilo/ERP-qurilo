@@ -10,16 +10,19 @@ import { handleDepartmentRoutes } from "./modules/department/controller.js";
 import { handleDesignationRoutes } from "./modules/designation/controller.js";
 import { handleEmployeeRoutes } from "./modules/employee/controller.js";
 import { getHealthResponse } from "./modules/health/controller.js";
+import { handleHolidayRoutes } from "./modules/holiday/controller.js";
 import { handleInviteRoutes } from "./modules/invite/controller.js";
 import { AttendanceLeaveService } from "./services/attendance-leave.service.js";
 import { AuthSyncService } from "./services/auth-sync.service.js";
 import { EmployeeService } from "./services/employee.service.js";
+import { HolidayService } from "./services/holiday.service.js";
 
 const config = getEmployeeConfig();
 const logger = createLogger(config.serviceName);
 const prisma = getPrismaClient();
 
 const attendanceLeaveService = new AttendanceLeaveService(prisma);
+const holidayService = new HolidayService(prisma);
 const employeeService = new EmployeeService(
   prisma,
   new AuthSyncService(config.authServiceUrl, config.internalApiKey),
@@ -43,6 +46,10 @@ const server = createServer(async (request, response) => {
     }
 
     if (await handleAttendanceLeaveRoutes(request, response, attendanceLeaveService, config.jwtSecret)) {
+      return;
+    }
+
+    if (await handleHolidayRoutes(request, response, holidayService, config.jwtSecret)) {
       return;
     }
 
