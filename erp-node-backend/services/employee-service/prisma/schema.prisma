@@ -95,6 +95,7 @@ model Employee {
   approvedLeaves            Leave[]      @relation("LeaveApprovedBy")
   leaveQuotas               LeaveQuota[]
   emergencyContacts         EmergencyContact[]
+  documents                 EmployeeDocument[]
 
   @@map("employees")
 }
@@ -151,6 +152,23 @@ model EmergencyContact {
   employee     Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
 
   @@map("emergency_contact")
+}
+
+model EmployeeDocument {
+  id         BigInt   @id @default(autoincrement())
+  employeeId String   @map("employee_id")
+  bucket     String?
+  path       String?
+  filename   String
+  mime       String?
+  size       BigInt?
+  url        String
+  uploadedBy String?  @map("uploaded_by")
+  entityType String   @default("DOCUMENT") @map("entity_type")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@map("employee_documents")
 }
 
 model Attendance {
