@@ -34,3 +34,19 @@ export interface EmployeeRequestDto {
 export interface EmployeeRoleUpdateDto {
   role?: string;
 }
+
+export interface EmployeeProfileUpdateDto {
+  name?: string;
+  email?: string;
+  profilePictureUrl?: string | null;
+  gender?: string | null;
+  birthday?: string | null;
+  bloodGroup?: string | null;
+  language?: string | null;
+  country?: string | null;
+  mobile?: string | null;
+  address?: string | null;
+  about?: string | null;
+  slackMemberId?: string | null;
+  maritalStatus?: string | null;
+}

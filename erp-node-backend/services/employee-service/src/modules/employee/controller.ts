@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { HttpError } from "../../common/errors.js";
 import { readJsonBody, sendJson } from "../../common/http.js";
-import type { EmployeeRequestDto, EmployeeRoleUpdateDto } from "./dto.js";
+import type { EmployeeProfileUpdateDto, EmployeeRequestDto, EmployeeRoleUpdateDto } from "./dto.js";
 import type { EmployeeService } from "../../services/employee.service.js";
 import { getAuthContext, requireRole } from "../../utils/auth-context.js";
 
@@ -40,6 +40,13 @@ export async function handleEmployeeRoutes(
     if (request.method === "GET" && pathname === "/employee/me") {
       const authContext = getAuthContext(request, jwtSecret);
       sendJson(response, 200, await employeeService.getEmployee(authContext.employeeId));
+      return true;
+    }
+
+    if (request.method === "PUT" && pathname === "/employee/me") {
+      const authContext = getAuthContext(request, jwtSecret);
+      const body = await readJsonBody<EmployeeProfileUpdateDto>(request);
+      sendJson(response, 200, await employeeService.updateMyProfile(authContext.employeeId, body));
       return true;
     }
 

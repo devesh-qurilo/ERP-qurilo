@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { HttpError } from "../common/errors.js";
 import type { DepartmentCreateDto, DepartmentUpdateDto } from "../modules/department/dto.js";
 import type { DesignationCreateDto, DesignationUpdateDto } from "../modules/designation/dto.js";
-import type { EmployeeRequestDto } from "../modules/employee/dto.js";
+import type { EmployeeProfileUpdateDto, EmployeeRequestDto } from "../modules/employee/dto.js";
 import type { CompleteRegistrationRequestDto, EmployeeInviteRequestDto } from "../modules/invite/dto.js";
 import { generateFinalEmployeeId, generateTempEmployeeId } from "../utils/employee-id.js";
 import { AuthSyncService } from "./auth-sync.service.js";
@@ -365,6 +365,41 @@ export class EmployeeService {
     return Boolean(employee);
   }
 
+  async updateMyProfile(employeeId: string, request: EmployeeProfileUpdateDto): Promise<Record<string, unknown>> {
+    const existingEmployee = await this.findEmployeeOrThrow(employeeId);
+    const nextEmail = request.email?.trim().toLowerCase() ?? existingEmployee.email;
+    const nextMobile =
+      request.mobile !== undefined ? normalizeOptionalString(request.mobile, existingEmployee.mobile) : existingEmployee.mobile;
+
+    await this.ensureUniqueEmployeeFields(existingEmployee.employeeId, nextEmail, nextMobile);
+
+    const updatedEmployee = await this.prisma.employee.update({
+      where: { employeeId: existingEmployee.employeeId },
+      data: {
+        name: request.name?.trim() ?? existingEmployee.name,
+        email: nextEmail,
+        profilePictureUrl: normalizeOptionalString(request.profilePictureUrl, existingEmployee.profilePictureUrl),
+        gender: normalizeOptionalString(request.gender, existingEmployee.gender),
+        birthday: request.birthday !== undefined ? toDate(request.birthday) : existingEmployee.birthday,
+        bloodGroup: normalizeOptionalString(request.bloodGroup, existingEmployee.bloodGroup),
+        language: normalizeOptionalString(request.language, existingEmployee.language),
+        country: normalizeOptionalString(request.country, existingEmployee.country),
+        mobile: nextMobile,
+        address: normalizeOptionalString(request.address, existingEmployee.address),
+        about: normalizeOptionalString(request.about, existingEmployee.about),
+        slackMemberId: normalizeOptionalString(request.slackMemberId, existingEmployee.slackMemberId),
+        maritalStatus: normalizeOptionalString(request.maritalStatus, existingEmployee.maritalStatus)
+      },
+      include: employeeInclude
+    });
+
+    if (existingEmployee.email !== updatedEmployee.email && updatedEmployee.loginAllowed) {
+      await this.authSyncService.updateEmail(updatedEmployee.employeeId, updatedEmployee.email);
+    }
+
+    return mapEmployee(updatedEmployee);
+  }
+
   async updateEmployee(employeeId: string, request: EmployeeRequestDto): Promise<Record<string, unknown>> {
     const existingEmployee = await this.findEmployeeOrThrow(employeeId);
     const nextRole = request.role ? normalizeRole(request.role) : existingEmployee.role;
@@ -691,6 +726,40 @@ export class EmployeeService {
 
     if (!designation) {
       throw new HttpError(404, "Designation not found");
+    }
+  }
+
+  private async ensureUniqueEmployeeFields(
+    currentEmployeeId: string,
+    email?: string | null,
+    mobile?: string | null
+  ): Promise<void> {
+    if (email) {
+      const employeeWithEmail = await this.prisma.employee.findFirst({
+        where: {
+          email,
+          employeeId: { not: currentEmployeeId }
+        },
+        select: { employeeId: true }
+      });
+
+      if (employeeWithEmail) {
+        throw new HttpError(409, "Email already exists");
+      }
+    }
+
+    if (mobile) {
+      const employeeWithMobile = await this.prisma.employee.findFirst({
+        where: {
+          mobile,
+          employeeId: { not: currentEmployeeId }
+        },
+        select: { employeeId: true }
+      });
+
+      if (employeeWithMobile) {
+        throw new HttpError(409, "Mobile already exists");
+      }
     }
   }
 
