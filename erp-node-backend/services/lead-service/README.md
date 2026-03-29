@@ -18,10 +18,11 @@ Implemented in this first pass:
 - deal followups + summary
 - deal documents
 - lead/deal CSV imports
+- client conversion + notifications
 - global priorities CRUD
 - employee-service validation/meta integration
 
 Still pending for later parity passes:
 
-- client-service conversion flows
-- notification side effects
+- bulk deal operations parity
+- stage and priority edge-case validation parity

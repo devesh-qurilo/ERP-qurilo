@@ -20,16 +20,16 @@
 - deal followups + summary
 - deal documents
 - lead/deal CSV imports
+- client conversion + notifications
 - global priorities CRUD
 - employee-service validation and meta enrichment
 
 ## Still Pending From Java Service
 
-- client-service conversion flow
-- notification side effects
 - bulk deal operations parity
 - stage and priority edge-case validation parity
 
 ## Recommended Next Order
 
-1. client conversion + notifications
+1. bulk deal operations parity
+2. stage and priority edge-case validation parity

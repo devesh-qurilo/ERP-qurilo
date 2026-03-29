@@ -4,6 +4,7 @@ import type { AuthContext } from "@erp/shared-auth";
 
 import { HttpError } from "../common/errors.js";
 import type { EmployeeClient } from "../lib/employee-client.js";
+import type { ClientServiceClient, NotificationClient } from "../lib/integration-clients.js";
 import type { MediaStorageService } from "./media-storage.service.js";
 
 export interface LeadPayload {
@@ -101,7 +102,9 @@ export class LeadService {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly employeeClient: EmployeeClient,
-    private readonly mediaStorageService: MediaStorageService
+    private readonly mediaStorageService: MediaStorageService,
+    private readonly clientServiceClient: ClientServiceClient,
+    private readonly notificationClient: NotificationClient
   ) {}
 
   async createLead(payload: LeadPayload, auth: AuthContext, authorizationHeader?: string) {
@@ -156,6 +159,8 @@ export class LeadService {
         companyAddress: payload.companyAddress ?? null
       }
     });
+
+    await this.sendLeadCreatedNotification(lead, auth);
 
     return this.enrichLead(lead);
   }
@@ -327,6 +332,9 @@ export class LeadService {
         leadId: payload.leadId ?? null
       }
     });
+
+    await this.sendDealCreatedNotification(deal);
+    await this.autoConvertLeadIfEligible(deal, authorizationHeader);
 
     return this.enrichDeal(deal);
   }
@@ -995,6 +1003,8 @@ export class LeadService {
       }
     });
 
+    await this.autoConvertLeadIfEligible(deal, authorizationHeader);
+
     return this.enrichDeal(deal);
   }
 
@@ -1013,6 +1023,8 @@ export class LeadService {
       where: { id },
       data: { dealStage: stage }
     });
+
+    await this.autoConvertLeadIfEligible(deal);
 
     return this.enrichDeal(deal);
   }
@@ -1419,6 +1431,101 @@ export class LeadService {
       throw new HttpError(400, "status must be one of PENDING, CANCELLED, COMPLETED");
     }
     return normalized;
+  }
+
+  private async autoConvertLeadIfEligible(
+    deal: { leadId: number | null; dealStage: string | null },
+    authorizationHeader?: string
+  ): Promise<void> {
+    if (!deal.leadId || deal.dealStage?.toUpperCase() !== "WIN") {
+      return;
+    }
+
+    const lead = await this.prisma.lead.findUnique({ where: { id: deal.leadId } });
+    if (!lead || !lead.autoConvertToClient) {
+      return;
+    }
+
+    if (lead.email) {
+      try {
+        const existingClients = await this.clientServiceClient.getClientsByEmail(lead.email, authorizationHeader);
+        if (existingClients.length > 0) {
+          await this.prisma.lead.update({
+            where: { id: lead.id },
+            data: { status: "CONVERTED" }
+          });
+          await this.sendLeadConvertedNotification(lead);
+          return;
+        }
+      } catch {
+        return;
+      }
+    }
+
+    try {
+      await this.clientServiceClient.createClientFromLead(lead, authorizationHeader);
+      await this.prisma.lead.update({
+        where: { id: lead.id },
+        data: { status: "CONVERTED" }
+      });
+      await this.sendLeadConvertedNotification(lead);
+    } catch {
+      // Keep lead/deal operations stable even if client-service is unavailable.
+    }
+  }
+
+  private async sendLeadCreatedNotification(
+    lead: { id: number; leadOwner: string; name: string },
+    auth: AuthContext
+  ): Promise<void> {
+    if (lead.leadOwner === auth.userId) {
+      return;
+    }
+
+    try {
+      await this.notificationClient.send(
+        lead.leadOwner,
+        "New Lead Assigned",
+        `Lead ${lead.name} (#${lead.id}) has been assigned to you.`,
+        "LEAD_ASSIGNED"
+      );
+    } catch {
+      // Notification failure should not block lead creation.
+    }
+  }
+
+  private async sendDealCreatedNotification(
+    deal: { id: number; title: string; dealAgent: string | null }
+  ): Promise<void> {
+    if (!deal.dealAgent) {
+      return;
+    }
+
+    try {
+      await this.notificationClient.send(
+        deal.dealAgent,
+        "New Deal Assigned",
+        `Deal ${deal.title} (#${deal.id}) has been assigned to you.`,
+        "DEAL_ASSIGNED"
+      );
+    } catch {
+      // Notification failure should not block deal creation.
+    }
+  }
+
+  private async sendLeadConvertedNotification(
+    lead: { id: number; leadOwner: string; name: string }
+  ): Promise<void> {
+    try {
+      await this.notificationClient.send(
+        lead.leadOwner,
+        "Lead Converted",
+        `Lead ${lead.name} (#${lead.id}) has been converted to a client.`,
+        "LEAD_CONVERTED"
+      );
+    } catch {
+      // Notification failure should not block conversion.
+    }
   }
 }
 

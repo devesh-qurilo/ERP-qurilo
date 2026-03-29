@@ -5,6 +5,7 @@ import { createLogger } from "@erp/shared-logger";
 import { HttpError } from "./common/errors.js";
 import { sendJson } from "./common/http.js";
 import { getLeadConfig } from "./config/env.js";
+import { ClientServiceClient, NotificationClient } from "./lib/integration-clients.js";
 import { getPrismaClient } from "./lib/prisma.js";
 import { EmployeeClient } from "./lib/employee-client.js";
 import { handleAdminRoutes } from "./modules/admin/controller.js";
@@ -25,7 +26,9 @@ const leadService = new LeadService(
     config.cloudinaryApiKey,
     config.cloudinaryApiSecret,
     config.cloudinaryUploadFolder
-  )
+  ),
+  new ClientServiceClient(config.clientServiceUrl),
+  new NotificationClient(config.employeeServiceUrl, config.internalApiKey)
 );
 
 const server = createServer(async (request, response) => {

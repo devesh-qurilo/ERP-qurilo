@@ -7,6 +7,7 @@ export interface LeadConfig {
   jwtSecret: string;
   internalApiKey: string;
   employeeServiceUrl: string;
+  clientServiceUrl: string;
   cloudinaryCloudName: string | null;
   cloudinaryApiKey: string | null;
   cloudinaryApiSecret: string | null;
@@ -23,6 +24,7 @@ export function getLeadConfig(): LeadConfig {
     jwtSecret: getString("JWT_SECRET"),
     internalApiKey: getString("INTERNAL_API_KEY"),
     employeeServiceUrl: getString("EMPLOYEE_SERVICE_URL", "http://localhost:8083").replace(/\/$/, ""),
+    clientServiceUrl: getString("CLIENT_SERVICE_URL", "http://localhost:8084").replace(/\/$/, ""),
     cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME ?? null,
     cloudinaryApiKey: process.env.CLOUDINARY_API_KEY ?? null,
     cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET ?? null,
