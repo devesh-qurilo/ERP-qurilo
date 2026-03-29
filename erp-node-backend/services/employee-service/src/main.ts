@@ -9,6 +9,7 @@ import { getPrismaClient } from "./lib/prisma.js";
 import { handleCompanyRoutes } from "./modules/company/controller.js";
 import { handleDepartmentRoutes } from "./modules/department/controller.js";
 import { handleDesignationRoutes } from "./modules/designation/controller.js";
+import { handleEmergencyRoutes } from "./modules/emergency/controller.js";
 import { handleEmployeeRoutes } from "./modules/employee/controller.js";
 import { getHealthResponse } from "./modules/health/controller.js";
 import { handleHolidayRoutes } from "./modules/holiday/controller.js";
@@ -16,6 +17,7 @@ import { handleInviteRoutes } from "./modules/invite/controller.js";
 import { AttendanceLeaveService } from "./services/attendance-leave.service.js";
 import { AuthSyncService } from "./services/auth-sync.service.js";
 import { CompanyService } from "./services/company.service.js";
+import { EmergencyService } from "./services/emergency.service.js";
 import { EmployeeService } from "./services/employee.service.js";
 import { HolidayService } from "./services/holiday.service.js";
 
@@ -25,6 +27,7 @@ const prisma = getPrismaClient();
 
 const attendanceLeaveService = new AttendanceLeaveService(prisma);
 const companyService = new CompanyService(prisma);
+const emergencyService = new EmergencyService(prisma);
 const holidayService = new HolidayService(prisma);
 const employeeService = new EmployeeService(
   prisma,
@@ -53,6 +56,10 @@ const server = createServer(async (request, response) => {
     }
 
     if (await handleCompanyRoutes(request, response, companyService, config.jwtSecret)) {
+      return;
+    }
+
+    if (await handleEmergencyRoutes(request, response, emergencyService, config.jwtSecret)) {
       return;
     }
 
