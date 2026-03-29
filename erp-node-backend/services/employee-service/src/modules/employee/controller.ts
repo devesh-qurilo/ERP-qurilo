@@ -50,6 +50,12 @@ export async function handleEmployeeRoutes(
       return true;
     }
 
+    if (request.method === "GET" && pathname === "/employee/meta/search") {
+      const url = new URL(request.url ?? "/", "http://localhost");
+      sendJson(response, 200, await employeeService.searchEmployeeMeta(url.searchParams.get("query") ?? ""));
+      return true;
+    }
+
     if (request.method === "GET" && pathname.startsWith("/employee/exists/")) {
       const employeeId = pathname.replace("/employee/exists/", "");
       sendJson(response, 200, await employeeService.employeeExists(employeeId));
@@ -59,6 +65,14 @@ export async function handleEmployeeRoutes(
     if (request.method === "GET" && pathname.startsWith("/employee/meta/")) {
       const employeeId = pathname.replace("/employee/meta/", "");
       sendJson(response, 200, await employeeService.getEmployeeMeta(employeeId));
+      return true;
+    }
+
+    if (request.method === "GET" && pathname === "/employee/birthdays") {
+      const authContext = getAuthContext(request, jwtSecret);
+      requireRole(authContext, "ROLE_ADMIN", "ROLE_EMPLOYEE");
+      const url = new URL(request.url ?? "/", "http://localhost");
+      sendJson(response, 200, await employeeService.getEmployeesWithBirthday(url.searchParams.get("date")));
       return true;
     }
 

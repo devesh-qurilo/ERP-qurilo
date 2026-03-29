@@ -347,13 +347,7 @@ export class EmployeeService {
   async getEmployeeMeta(employeeId: string): Promise<Record<string, unknown>> {
     const employee = await this.findEmployeeOrThrow(employeeId);
 
-    return {
-      employeeId: employee.employeeId,
-      name: employee.name,
-      designation: employee.designation?.designationName ?? null,
-      department: employee.department?.departmentName ?? null,
-      profileUrl: employee.profilePictureUrl
-    };
+    return mapEmployeeMeta(employee);
   }
 
   async employeeExists(employeeId: string): Promise<boolean> {
@@ -363,6 +357,54 @@ export class EmployeeService {
     });
 
     return Boolean(employee);
+  }
+
+  async searchEmployeeMeta(query: string): Promise<Record<string, unknown>[]> {
+    const normalizedQuery = query.trim();
+
+    if (!normalizedQuery) {
+      return [];
+    }
+
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        OR: [
+          { name: { contains: normalizedQuery, mode: "insensitive" } },
+          { email: { contains: normalizedQuery, mode: "insensitive" } }
+        ]
+      },
+      include: employeeInclude,
+      orderBy: { name: "asc" },
+      take: 20
+    });
+
+    return employees.map(mapEmployeeMeta);
+  }
+
+  async getEmployeesWithBirthday(date?: string | null): Promise<Record<string, unknown>[]> {
+    const targetDate = date ? requireBirthdayDate(date) : new Date();
+    const month = targetDate.getUTCMonth() + 1;
+    const day = targetDate.getUTCDate();
+
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        birthday: {
+          not: null
+        }
+      },
+      include: employeeInclude,
+      orderBy: { name: "asc" }
+    });
+
+    return employees
+      .filter((employee) => {
+        if (!employee.birthday) {
+          return false;
+        }
+
+        return employee.birthday.getUTCMonth() + 1 === month && employee.birthday.getUTCDate() === day;
+      })
+      .map(mapEmployee);
   }
 
   async updateMyProfile(employeeId: string, request: EmployeeProfileUpdateDto): Promise<Record<string, unknown>> {
@@ -886,6 +928,16 @@ function mapEmployee(employee: EmployeeWithRelations): Record<string, unknown> {
   };
 }
 
+function mapEmployeeMeta(employee: EmployeeWithRelations): Record<string, unknown> {
+  return {
+    employeeId: employee.employeeId,
+    name: employee.name,
+    designation: employee.designation?.designationName ?? null,
+    department: employee.department?.departmentName ?? null,
+    profileUrl: employee.profilePictureUrl
+  };
+}
+
 function normalizeEmployeeId(employeeId: string): string {
   return employeeId.trim().toUpperCase();
 }
@@ -924,4 +976,14 @@ function normalizeOptionalString(incoming: string | null | undefined, fallback: 
 
 async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
+}
+
+function requireBirthdayDate(value: string): Date {
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    throw new HttpError(400, "Invalid date");
+  }
+
+  return parsed;
 }
