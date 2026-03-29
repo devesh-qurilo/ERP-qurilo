@@ -7,6 +7,10 @@ export interface EmployeeConfig {
   jwtSecret: string;
   internalApiKey: string;
   authServiceUrl: string;
+  cloudinaryCloudName: string | null;
+  cloudinaryApiKey: string | null;
+  cloudinaryApiSecret: string | null;
+  cloudinaryUploadFolder: string;
 }
 
 export function getEmployeeConfig(): EmployeeConfig {
@@ -18,6 +22,10 @@ export function getEmployeeConfig(): EmployeeConfig {
     databaseUrl: getString("EMPLOYEE_DATABASE_URL"),
     jwtSecret: getString("JWT_SECRET"),
     internalApiKey: getString("INTERNAL_API_KEY"),
-    authServiceUrl: getString("AUTH_SERVICE_URL", "http://localhost:8081").replace(/\/$/, "")
+    authServiceUrl: getString("AUTH_SERVICE_URL", "http://localhost:8081").replace(/\/$/, ""),
+    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME ?? null,
+    cloudinaryApiKey: process.env.CLOUDINARY_API_KEY ?? null,
+    cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET ?? null,
+    cloudinaryUploadFolder: process.env.CLOUDINARY_UPLOAD_FOLDER ?? "erp"
   };
 }

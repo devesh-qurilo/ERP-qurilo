@@ -35,6 +35,8 @@ model Department {
   parentDepartment Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   childDepartments Department[] @relation("DepartmentHierarchy")
   employees        Employee[]
+  oldPromotions    Promotion[]  @relation("PromotionOldDepartment")
+  newPromotions    Promotion[]  @relation("PromotionNewDepartment")
 
   @@map("departments")
 }
@@ -47,6 +49,8 @@ model Designation {
   parentDesignation Designation?  @relation("DesignationHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   childDesignations Designation[] @relation("DesignationHierarchy")
   employees         Employee[]
+  oldPromotions     Promotion[]   @relation("PromotionOldDesignation")
+  newPromotions     Promotion[]   @relation("PromotionNewDesignation")
 
   @@map("designations")
 }
@@ -99,6 +103,8 @@ model Employee {
   sentNotifications         Notification[]    @relation("NotificationSender")
   receivedNotifications     Notification[]    @relation("NotificationReceiver")
   pushTokens                PushToken[]
+  appreciationsGiven        Appreciation[]
+  promotions                Promotion[]
 
   @@map("employees")
 }
@@ -201,6 +207,60 @@ model PushToken {
 
   @@index([employeeId], map: "idx_push_tokens_user")
   @@map("push_tokens")
+}
+
+model Award {
+  id                   BigInt          @id @default(autoincrement())
+  title                String
+  summary              String?
+  isActive             Boolean         @default(true) @map("is_active")
+  uploadedByEmployeeId String?         @map("uploaded_by_employee_id")
+  iconUrl              String?         @map("icon_url")
+  iconObjectKey        String?         @map("icon_object_key")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+  appreciations        Appreciation[]
+
+  @@map("awards")
+}
+
+model Appreciation {
+  id                BigInt    @id @default(autoincrement())
+  awardId           BigInt    @map("award_id")
+  givenToEmployeeId String    @map("given_to_employee_id")
+  date              DateTime  @db.Date
+  summary           String?
+  photoUrl          String?   @map("photo_url")
+  photoObjectKey    String?   @map("photo_object_key")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime? @updatedAt @map("updated_at")
+  award             Award     @relation(fields: [awardId], references: [id], onDelete: Cascade)
+  givenTo           Employee  @relation(fields: [givenToEmployeeId], references: [employeeId], onDelete: Cascade)
+
+  @@index([givenToEmployeeId], map: "idx_appreciation_employee")
+  @@map("appreciations")
+}
+
+model Promotion {
+  id               BigInt      @id @default(autoincrement())
+  employeeId       String      @map("employee_id")
+  oldDepartmentId  BigInt      @map("old_department_id")
+  oldDesignationId BigInt      @map("old_designation_id")
+  newDepartmentId  BigInt      @map("new_department_id")
+  newDesignationId BigInt      @map("new_designation_id")
+  isPromotion      Boolean     @map("is_promotion")
+  sendNotification Boolean     @default(false) @map("send_notification")
+  remarks          String?
+  createdAt        DateTime    @default(now()) @map("created_at")
+  employee         Employee    @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  oldDepartment    Department  @relation("PromotionOldDepartment", fields: [oldDepartmentId], references: [id], onDelete: Restrict)
+  oldDesignation   Designation @relation("PromotionOldDesignation", fields: [oldDesignationId], references: [id], onDelete: Restrict)
+  newDepartment    Department  @relation("PromotionNewDepartment", fields: [newDepartmentId], references: [id], onDelete: Restrict)
+  newDesignation   Designation @relation("PromotionNewDesignation", fields: [newDesignationId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId], map: "idx_promotion_employee")
+  @@map("promotions")
 }
 
 model Attendance {
