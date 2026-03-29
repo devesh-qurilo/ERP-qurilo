@@ -15,6 +15,7 @@ import { handleDesignationRoutes } from "./modules/designation/controller.js";
 import { handleDocumentRoutes } from "./modules/document/controller.js";
 import { handleEmergencyRoutes } from "./modules/emergency/controller.js";
 import { handleEmployeeRoutes } from "./modules/employee/controller.js";
+import { handleEmployeeExcelRoutes } from "./modules/excel/controller.js";
 import { getHealthResponse } from "./modules/health/controller.js";
 import { handleHolidayRoutes } from "./modules/holiday/controller.js";
 import { handleInviteRoutes } from "./modules/invite/controller.js";
@@ -39,19 +40,19 @@ const config = getEmployeeConfig();
 const logger = createLogger(config.serviceName);
 const prisma = getPrismaClient();
 
-const attendanceLeaveService = new AttendanceLeaveService(prisma);
-const companyService = new CompanyService(prisma);
-const documentService = new DocumentService(prisma);
-const emergencyService = new EmergencyService(prisma);
-const holidayService = new HolidayService(prisma);
-const pushService = new PushService(prisma);
-const notificationService = new NotificationService(prisma, pushService);
 const mediaStorageService = new MediaStorageService(
   config.cloudinaryCloudName,
   config.cloudinaryApiKey,
   config.cloudinaryApiSecret,
   config.cloudinaryUploadFolder
 );
+const attendanceLeaveService = new AttendanceLeaveService(prisma, mediaStorageService);
+const companyService = new CompanyService(prisma, mediaStorageService);
+const documentService = new DocumentService(prisma, mediaStorageService);
+const emergencyService = new EmergencyService(prisma);
+const holidayService = new HolidayService(prisma);
+const pushService = new PushService(prisma);
+const notificationService = new NotificationService(prisma, pushService);
 const awardService = new AwardService(prisma, mediaStorageService);
 const appreciationService = new AppreciationService(prisma, mediaStorageService, notificationService);
 const promotionService = new PromotionService(prisma, notificationService);
@@ -59,7 +60,8 @@ const employeeService = new EmployeeService(
   prisma,
   new AuthSyncService(config.authServiceUrl, config.internalApiKey),
   config.jwtSecret,
-  attendanceLeaveService
+  attendanceLeaveService,
+  mediaStorageService
 );
 
 const server = createServer(async (request, response) => {
@@ -94,6 +96,10 @@ const server = createServer(async (request, response) => {
     }
 
     if (await handleDocumentRoutes(request, response, documentService, config.jwtSecret)) {
+      return;
+    }
+
+    if (await handleEmployeeExcelRoutes(request, response, employeeService, config.jwtSecret)) {
       return;
     }
 

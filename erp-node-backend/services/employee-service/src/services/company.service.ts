@@ -2,11 +2,19 @@ import type { Company, PrismaClient } from "@prisma/client";
 
 import { HttpError } from "../common/errors.js";
 import type { CompanyRequestDto } from "../modules/company/dto.js";
+import type { MediaStorageService } from "./media-storage.service.js";
 
 export class CompanyService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly mediaStorageService: MediaStorageService
+  ) {}
 
-  async createCompany(_adminEmployeeId: string, dto: CompanyRequestDto): Promise<Record<string, unknown>> {
+  async createCompany(
+    _adminEmployeeId: string,
+    dto: CompanyRequestDto,
+    logoFile?: { filename: string | null; contentType: string | null; data: Buffer } | null
+  ): Promise<Record<string, unknown>> {
     const companyName = dto.companyName?.trim();
     const email = dto.email?.trim().toLowerCase();
     const contactNo = dto.contactNo?.trim();
@@ -27,6 +35,7 @@ export class CompanyService {
 
     await this.ensureCompanyUnique(companyName, email);
 
+    const uploadedLogo = await this.mediaStorageService.saveUploadedFile(logoFile, "company/logo");
     const company = await this.prisma.company.create({
       data: {
         companyName,
@@ -34,7 +43,7 @@ export class CompanyService {
         contactNo,
         website: dto.website?.trim() || null,
         address: dto.address?.trim() || null,
-        logoUrl: dto.logoUrl?.trim() || null,
+        logoUrl: uploadedLogo?.url ?? (dto.logoUrl?.trim() || null),
         isActive: true
       }
     });
@@ -55,7 +64,11 @@ export class CompanyService {
     return mapCompany(company);
   }
 
-  async updateCompany(_adminEmployeeId: string, dto: CompanyRequestDto): Promise<Record<string, unknown>> {
+  async updateCompany(
+    _adminEmployeeId: string,
+    dto: CompanyRequestDto,
+    logoFile?: { filename: string | null; contentType: string | null; data: Buffer } | null
+  ): Promise<Record<string, unknown>> {
     const company = await this.prisma.company.findFirst({
       where: { isActive: true },
       orderBy: { createdAt: "desc" }
@@ -72,6 +85,7 @@ export class CompanyService {
     validateContactNo(nextContactNo);
     await this.ensureCompanyUnique(nextCompanyName, nextEmail, Number(company.id));
 
+    const uploadedLogo = await this.mediaStorageService.saveUploadedFile(logoFile, "company/logo");
     const updatedCompany = await this.prisma.company.update({
       where: { id: company.id },
       data: {
@@ -80,7 +94,7 @@ export class CompanyService {
         contactNo: nextContactNo,
         website: dto.website !== undefined ? dto.website?.trim() || null : company.website,
         address: dto.address !== undefined ? dto.address?.trim() || null : company.address,
-        logoUrl: dto.logoUrl !== undefined ? dto.logoUrl?.trim() || null : company.logoUrl
+        logoUrl: uploadedLogo?.url ?? (dto.logoUrl !== undefined ? dto.logoUrl?.trim() || null : company.logoUrl)
       }
     });
 

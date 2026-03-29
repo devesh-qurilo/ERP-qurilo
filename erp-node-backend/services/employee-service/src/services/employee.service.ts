@@ -11,6 +11,7 @@ import type { CompleteRegistrationRequestDto, EmployeeInviteRequestDto } from ".
 import { generateFinalEmployeeId, generateTempEmployeeId } from "../utils/employee-id.js";
 import { AuthSyncService } from "./auth-sync.service.js";
 import type { AttendanceLeaveService } from "./attendance-leave.service.js";
+import type { MediaStorageService } from "./media-storage.service.js";
 
 type EmployeeWithRelations = Employee & {
   department: Department | null;
@@ -29,7 +30,8 @@ export class EmployeeService {
     private readonly prisma: PrismaClient,
     private readonly authSyncService: AuthSyncService,
     private readonly jwtSecret?: string,
-    private readonly attendanceLeaveService?: AttendanceLeaveService
+    private readonly attendanceLeaveService?: AttendanceLeaveService,
+    private readonly mediaStorageService?: MediaStorageService
   ) {}
 
   async sendInvite(request: EmployeeInviteRequestDto, invitedByEmployeeId?: string): Promise<Record<string, unknown>> {
@@ -233,7 +235,10 @@ export class EmployeeService {
     return { message: "EmployeeId updated" };
   }
 
-  async createEmployee(request: EmployeeRequestDto): Promise<Record<string, unknown>> {
+  async createEmployee(
+    request: EmployeeRequestDto,
+    profilePictureFile?: { filename: string | null; contentType: string | null; data: Buffer } | null
+  ): Promise<Record<string, unknown>> {
     const name = request.name?.trim();
     const email = request.email?.trim().toLowerCase();
 
@@ -262,13 +267,17 @@ export class EmployeeService {
 
     await this.ensureRelatedEntitiesExist(request);
 
+    const uploadedProfilePicture = await this.mediaStorageService?.saveUploadedFile(
+      profilePictureFile,
+      `employees/${employeeId}/profile`
+    );
     const employee = await this.prisma.employee.create({
       data: {
         employeeId,
         name,
         email,
         password: plainPassword ? await hashPassword(plainPassword) : null,
-        profilePictureUrl: request.profilePictureUrl?.trim() || null,
+        profilePictureUrl: uploadedProfilePicture?.url ?? (request.profilePictureUrl?.trim() || null),
         gender: request.gender?.trim() || null,
         birthday: toDate(request.birthday),
         bloodGroup: request.bloodGroup?.trim() || null,
@@ -407,7 +416,11 @@ export class EmployeeService {
       .map(mapEmployee);
   }
 
-  async updateMyProfile(employeeId: string, request: EmployeeProfileUpdateDto): Promise<Record<string, unknown>> {
+  async updateMyProfile(
+    employeeId: string,
+    request: EmployeeProfileUpdateDto,
+    profilePictureFile?: { filename: string | null; contentType: string | null; data: Buffer } | null
+  ): Promise<Record<string, unknown>> {
     const existingEmployee = await this.findEmployeeOrThrow(employeeId);
     const nextEmail = request.email?.trim().toLowerCase() ?? existingEmployee.email;
     const nextMobile =
@@ -415,12 +428,17 @@ export class EmployeeService {
 
     await this.ensureUniqueEmployeeFields(existingEmployee.employeeId, nextEmail, nextMobile);
 
+    const uploadedProfilePicture = await this.mediaStorageService?.saveUploadedFile(
+      profilePictureFile,
+      `employees/${existingEmployee.employeeId}/profile`
+    );
     const updatedEmployee = await this.prisma.employee.update({
       where: { employeeId: existingEmployee.employeeId },
       data: {
         name: request.name?.trim() ?? existingEmployee.name,
         email: nextEmail,
-        profilePictureUrl: normalizeOptionalString(request.profilePictureUrl, existingEmployee.profilePictureUrl),
+        profilePictureUrl:
+          uploadedProfilePicture?.url ?? normalizeOptionalString(request.profilePictureUrl, existingEmployee.profilePictureUrl),
         gender: normalizeOptionalString(request.gender, existingEmployee.gender),
         birthday: request.birthday !== undefined ? toDate(request.birthday) : existingEmployee.birthday,
         bloodGroup: normalizeOptionalString(request.bloodGroup, existingEmployee.bloodGroup),
@@ -442,7 +460,11 @@ export class EmployeeService {
     return mapEmployee(updatedEmployee);
   }
 
-  async updateEmployee(employeeId: string, request: EmployeeRequestDto): Promise<Record<string, unknown>> {
+  async updateEmployee(
+    employeeId: string,
+    request: EmployeeRequestDto,
+    profilePictureFile?: { filename: string | null; contentType: string | null; data: Buffer } | null
+  ): Promise<Record<string, unknown>> {
     const existingEmployee = await this.findEmployeeOrThrow(employeeId);
     const nextRole = request.role ? normalizeRole(request.role) : existingEmployee.role;
     const nextEmail = request.email?.trim().toLowerCase() ?? existingEmployee.email;
@@ -455,13 +477,18 @@ export class EmployeeService {
 
     await this.ensureRelatedEntitiesExist(request);
 
+    const uploadedProfilePicture = await this.mediaStorageService?.saveUploadedFile(
+      profilePictureFile,
+      `employees/${existingEmployee.employeeId}/profile`
+    );
     const updatedEmployee = await this.prisma.employee.update({
       where: { employeeId: existingEmployee.employeeId },
       data: {
         name: request.name?.trim() ?? existingEmployee.name,
         email: nextEmail,
         password: nextPassword ? await hashPassword(nextPassword) : existingEmployee.password,
-        profilePictureUrl: normalizeOptionalString(request.profilePictureUrl, existingEmployee.profilePictureUrl),
+        profilePictureUrl:
+          uploadedProfilePicture?.url ?? normalizeOptionalString(request.profilePictureUrl, existingEmployee.profilePictureUrl),
         gender: normalizeOptionalString(request.gender, existingEmployee.gender),
         birthday: request.birthday !== undefined ? toDate(request.birthday) : existingEmployee.birthday,
         bloodGroup: normalizeOptionalString(request.bloodGroup, existingEmployee.bloodGroup),

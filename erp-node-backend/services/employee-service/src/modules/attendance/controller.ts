@@ -224,16 +224,16 @@ export async function handleAttendanceLeaveRoutes(
 
     if (request.method === "POST" && pathname === "/employee/api/leaves/apply") {
       const auth = getAuthContext(request, jwtSecret);
-      const body = await readJsonBody<LeaveApplyDto>(request);
-      sendJson(response, 200, await attendanceLeaveService.applyLeave(auth.employeeId, body));
+      const { body, files } = await readLeaveRequest(request);
+      sendJson(response, 200, await attendanceLeaveService.applyLeave(auth.employeeId, body, files));
       return true;
     }
 
     if (request.method === "POST" && pathname === "/employee/api/leaves/admin/apply") {
       const auth = getAuthContext(request, jwtSecret);
       requireRole(auth, "ROLE_ADMIN");
-      const body = await readJsonBody<AdminLeaveApplyDto>(request);
-      sendJson(response, 200, await attendanceLeaveService.applyLeavesForEmployees(body, auth.employeeId));
+      const { body, files } = await readAdminLeaveRequest(request);
+      sendJson(response, 200, await attendanceLeaveService.applyLeavesForEmployees(body, auth.employeeId, files));
       return true;
     }
 
@@ -334,4 +334,79 @@ export async function handleAttendanceLeaveRoutes(
   }
 
   return false;
+}
+
+async function readLeaveRequest(request: IncomingMessage): Promise<{
+  body: LeaveApplyDto;
+  files: Array<{ filename: string | null; contentType: string | null; data: Buffer }>;
+}> {
+  const contentType = request.headers["content-type"] ?? "";
+
+  if (!contentType.includes("multipart/form-data")) {
+    return {
+      body: await readJsonBody<LeaveApplyDto>(request),
+      files: []
+    };
+  }
+
+  const multipart = await parseMultipartFormData(request);
+
+  return {
+    body: {
+      leaveType: multipart.fields.leaveType?.[0] as LeaveApplyDto["leaveType"],
+      durationType: multipart.fields.durationType?.[0] as LeaveApplyDto["durationType"],
+      startDate: multipart.fields.startDate?.[0] ?? null,
+      endDate: multipart.fields.endDate?.[0] ?? null,
+      singleDate: multipart.fields.singleDate?.[0] ?? null,
+      reason: multipart.fields.reason?.[0] ?? null,
+      documentUrls: multipart.fields.documentUrls?.flatMap(splitCsvValues) ?? null
+    },
+    files: [
+      ...(multipart.files.documents ?? []),
+      ...(multipart.files.documentFiles ?? []),
+      ...(multipart.files.files ?? [])
+    ]
+  };
+}
+
+async function readAdminLeaveRequest(request: IncomingMessage): Promise<{
+  body: AdminLeaveApplyDto;
+  files: Array<{ filename: string | null; contentType: string | null; data: Buffer }>;
+}> {
+  const contentType = request.headers["content-type"] ?? "";
+
+  if (!contentType.includes("multipart/form-data")) {
+    return {
+      body: await readJsonBody<AdminLeaveApplyDto>(request),
+      files: []
+    };
+  }
+
+  const multipart = await parseMultipartFormData(request);
+
+  return {
+    body: {
+      leaveType: multipart.fields.leaveType?.[0] as AdminLeaveApplyDto["leaveType"],
+      durationType: multipart.fields.durationType?.[0] as AdminLeaveApplyDto["durationType"],
+      startDate: multipart.fields.startDate?.[0] ?? null,
+      endDate: multipart.fields.endDate?.[0] ?? null,
+      singleDate: multipart.fields.singleDate?.[0] ?? null,
+      reason: multipart.fields.reason?.[0] ?? null,
+      status: multipart.fields.status?.[0] as AdminLeaveApplyDto["status"],
+      employeeIds: multipart.fields.employeeIds?.flatMap(splitCsvValues) ?? [],
+      documentUrls: multipart.fields.documentUrls?.flatMap(splitCsvValues) ?? null
+    },
+    files: [
+      ...(multipart.files.documents ?? []),
+      ...(multipart.files.documentFiles ?? []),
+      ...(multipart.files.files ?? [])
+    ]
+  };
+}
+
+function splitCsvValues(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }

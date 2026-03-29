@@ -24,6 +24,7 @@ import type {
   LeaveStatusUpdateDto,
   MonthAttendanceRequestDto
 } from "../modules/attendance/dto.js";
+import type { MediaStorageService } from "./media-storage.service.js";
 
 const DEFAULT_LEAVE_TYPES = ["SICK", "CASUAL", "EARNED"] as const;
 const DEFAULT_TOTAL = 5;
@@ -49,7 +50,10 @@ type LeaveWithPeople = Leave & {
 };
 
 export class AttendanceLeaveService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly mediaStorageService?: MediaStorageService
+  ) {}
 
   async assignDefaultLeaveQuotas(employeeId: string): Promise<void> {
     const year = new Date().getUTCFullYear();
@@ -568,7 +572,11 @@ export class AttendanceLeaveService {
     return { message: "Attendance updated" };
   }
 
-  async applyLeave(employeeId: string, request: LeaveApplyDto): Promise<Record<string, unknown>> {
+  async applyLeave(
+    employeeId: string,
+    request: LeaveApplyDto,
+    documentFiles?: Array<{ filename: string | null; contentType: string | null; data: Buffer }>
+  ): Promise<Record<string, unknown>> {
     const employee = await this.ensureEmployee(employeeId);
     const leaveType = parseLeaveType(request.leaveType);
     const durationType = parseDurationType(request.durationType);
@@ -577,6 +585,8 @@ export class AttendanceLeaveService {
     const leaveDays = calculateLeaveDays(durationType, request);
     const quota = await this.ensureQuota(employee.employeeId, leaveType);
     const isPaid = quota.remainingLeaves < leaveDays;
+    const uploadedDocuments = await this.uploadLeaveDocuments(documentFiles, employee.employeeId);
+    const documentUrls = [...(request.documentUrls ?? []), ...uploadedDocuments.map((document) => document.url)];
 
     const savedLeave = await this.prisma.leave.create({
       data: {
@@ -589,13 +599,13 @@ export class AttendanceLeaveService {
         reason: request.reason?.trim() || null,
         status: LeaveStatus.PENDING,
         isPaid,
-        documents: request.documentUrls?.length
+        documents: documentUrls.length
           ? {
-              create: request.documentUrls
-                .map((url, index) => url.trim())
+              create: documentUrls
+                .map((url) => url.trim())
                 .filter(Boolean)
                 .map((url, index) => ({
-                  filename: `leave-document-${index + 1}`,
+                  filename: uploadedDocuments[index]?.filename ?? `leave-document-${index + 1}`,
                   url
                 }))
             }
@@ -611,7 +621,11 @@ export class AttendanceLeaveService {
     return mapLeave(savedLeave);
   }
 
-  async applyLeavesForEmployees(request: AdminLeaveApplyDto, adminId: string): Promise<Record<string, unknown>[]> {
+  async applyLeavesForEmployees(
+    request: AdminLeaveApplyDto,
+    adminId: string,
+    documentFiles?: Array<{ filename: string | null; contentType: string | null; data: Buffer }>
+  ): Promise<Record<string, unknown>[]> {
     const employeeIds = request.employeeIds?.map(normalizeEmployeeId).filter(Boolean) ?? [];
 
     if (!employeeIds.length) {
@@ -620,6 +634,8 @@ export class AttendanceLeaveService {
 
     const status = request.status ? parseLeaveStatus(request.status) : LeaveStatus.PENDING;
     const results: Record<string, unknown>[] = [];
+    const uploadedDocuments = await this.uploadLeaveDocuments(documentFiles, "admin-bulk");
+    const documentUrls = [...(request.documentUrls ?? []), ...uploadedDocuments.map((document) => document.url)];
 
     for (const employeeId of employeeIds) {
       const employee = await this.ensureEmployee(employeeId);
@@ -650,13 +666,13 @@ export class AttendanceLeaveService {
             approvedById: status === LeaveStatus.APPROVED ? adminEmployee?.employeeId ?? null : null,
             approvedAt: status === LeaveStatus.APPROVED ? new Date() : null,
             rejectedAt: status === LeaveStatus.REJECTED ? new Date() : null,
-            documents: request.documentUrls?.length
+            documents: documentUrls.length
               ? {
-                  create: request.documentUrls
+                  create: documentUrls
                     .map((url) => url.trim())
                     .filter(Boolean)
                     .map((url, index) => ({
-                      filename: `leave-document-${index + 1}`,
+                      filename: uploadedDocuments[index]?.filename ?? `leave-document-${index + 1}`,
                       url
                     }))
                 }
@@ -973,6 +989,30 @@ export class AttendanceLeaveService {
     }
 
     return quota;
+  }
+
+  private async uploadLeaveDocuments(
+    documentFiles: Array<{ filename: string | null; contentType: string | null; data: Buffer }> | undefined,
+    employeeId: string
+  ): Promise<Array<{ url: string; filename: string }>> {
+    if (!documentFiles?.length || !this.mediaStorageService) {
+      return [];
+    }
+
+    const uploads: Array<{ url: string; filename: string }> = [];
+
+    for (const file of documentFiles) {
+      const uploaded = await this.mediaStorageService.saveUploadedFile(file, `leave-documents/${employeeId}`);
+
+      if (uploaded) {
+        uploads.push({
+          url: uploaded.url,
+          filename: file.filename?.trim() || "leave-document"
+        });
+      }
+    }
+
+    return uploads;
   }
 
   private async processAttendanceImportRow(

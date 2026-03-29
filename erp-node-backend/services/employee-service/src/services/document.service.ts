@@ -2,35 +2,41 @@ import type { Employee, EmployeeDocument, PrismaClient } from "@prisma/client";
 
 import { HttpError } from "../common/errors.js";
 import type { EmployeeDocumentUploadDto } from "../modules/document/dto.js";
+import type { MediaStorageService } from "./media-storage.service.js";
 
 type EmployeeDocumentWithEmployee = EmployeeDocument & {
   employee: Employee;
 };
 
 export class DocumentService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly mediaStorageService: MediaStorageService
+  ) {}
 
   async uploadDocument(
     employeeId: string,
     dto: EmployeeDocumentUploadDto,
-    uploadedBy: string
+    uploadedBy: string,
+    file?: { filename: string | null; contentType: string | null; data: Buffer } | null
   ): Promise<Record<string, unknown>> {
     const employee = await this.ensureEmployee(employeeId);
-    const filename = dto.filename?.trim();
-    const url = dto.url?.trim();
+    const uploadedFile = await this.mediaStorageService.saveUploadedFile(file, `employee-documents/${employee.employeeId}`);
+    const filename = dto.filename?.trim() || file?.filename?.trim() || null;
+    const url = uploadedFile?.url ?? dto.url?.trim() ?? null;
 
     if (!filename || !url) {
-      throw new HttpError(400, "filename and url are required");
+      throw new HttpError(400, "filename and file/url are required");
     }
 
     const document = await this.prisma.employeeDocument.create({
       data: {
         employeeId: employee.employeeId,
-        bucket: dto.bucket?.trim() || "employee-documents",
-        path: dto.path?.trim() || buildDocumentPath(employee.employeeId, filename),
+        bucket: dto.bucket?.trim() || "cloudinary",
+        path: uploadedFile?.objectKey ?? (dto.path?.trim() || buildDocumentPath(employee.employeeId, filename)),
         filename,
-        mime: dto.mime?.trim() || null,
-        size: dto.size !== undefined && dto.size !== null ? BigInt(dto.size) : null,
+        mime: file?.contentType || dto.mime?.trim() || null,
+        size: file?.data?.length ? BigInt(file.data.length) : dto.size !== undefined && dto.size !== null ? BigInt(dto.size) : null,
         url,
         uploadedBy: dto.uploadedBy?.trim() || uploadedBy,
         entityType: "DOCUMENT"
