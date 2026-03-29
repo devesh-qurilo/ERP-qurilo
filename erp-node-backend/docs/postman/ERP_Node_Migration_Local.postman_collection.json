@@ -1,0 +1,1829 @@
+{
+  "info": {
+    "_postman_id": "9fb43d31-2a4d-4f63-9cc9-c0db7156f001",
+    "name": "ERP Node Migration Local",
+    "description": "Comprehensive local Postman collection for the migrated Node auth-service and employee-service.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth Service",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{authBaseUrl}}/health", "host": ["{{authBaseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.environment.set('adminAccessToken', data.accessToken || '');",
+                  "pm.environment.set('refreshToken', data.refreshToken || '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"{{adminEmployeeId}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": { "raw": "{{authBaseUrl}}/auth/login", "host": ["{{authBaseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Login Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "pm.environment.set('employeeAccessToken', data.accessToken || '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"{{employeeEmployeeId}}\",\n  \"password\": \"{{employeePassword}}\"\n}"
+            },
+            "url": { "raw": "{{authBaseUrl}}/auth/login", "host": ["{{authBaseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Manual Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"{{manualRegisterEmployeeId}}\",\n  \"name\": \"Manual Register User\",\n  \"email\": \"{{manualRegisterEmail}}\",\n  \"password\": \"{{manualRegisterPassword}}\",\n  \"role\": \"ROLE_EMPLOYEE\"\n}"
+            },
+            "url": { "raw": "{{authBaseUrl}}/auth/manual-register", "host": ["{{authBaseUrl}}"], "path": ["auth", "manual-register"] }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{adminEmployeeId}}\"\n}" },
+            "url": { "raw": "{{authBaseUrl}}/auth/forgot-password", "host": ["{{authBaseUrl}}"], "path": ["auth", "forgot-password"] }
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{adminEmployeeId}}\",\n  \"otp\": \"000000\"\n}" },
+            "url": { "raw": "{{authBaseUrl}}/auth/verify-otp", "host": ["{{authBaseUrl}}"], "path": ["auth", "verify-otp"] }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"{{manualRegisterEmployeeId}}\",\n  \"newPassword\": \"{{manualRegisterPassword}}\"\n}"
+            },
+            "url": { "raw": "{{authBaseUrl}}/auth/reset-password", "host": ["{{authBaseUrl}}"], "path": ["auth", "reset-password"] }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": { "raw": "{{authBaseUrl}}/auth/refresh", "host": ["{{authBaseUrl}}"], "path": ["auth", "refresh"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": { "raw": "{{authBaseUrl}}/auth/logout", "host": ["{{authBaseUrl}}"], "path": ["auth", "logout"] }
+          }
+        },
+        {
+          "name": "Forgot Ticket",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{adminEmployeeId}}\"\n}" },
+            "url": { "raw": "{{authBaseUrl}}/auth/forgot-ticket", "host": ["{{authBaseUrl}}"], "path": ["auth", "forgot-ticket"] }
+          }
+        },
+        {
+          "name": "Internal Auth Health",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "x-internal-api-key", "value": "{{internalApiKey}}" }],
+            "url": { "raw": "{{authBaseUrl}}/internal/auth/health", "host": ["{{authBaseUrl}}"], "path": ["internal", "auth", "health"] }
+          }
+        },
+        {
+          "name": "Internal Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-internal-api-key", "value": "{{internalApiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"{{manualRegisterEmployeeId}}\",\n  \"name\": \"Manual Register User\",\n  \"email\": \"{{manualRegisterEmail}}\",\n  \"password\": \"{{manualRegisterPassword}}\",\n  \"role\": \"ROLE_EMPLOYEE\"\n}"
+            },
+            "url": { "raw": "{{authBaseUrl}}/internal/auth/register", "host": ["{{authBaseUrl}}"], "path": ["internal", "auth", "register"] }
+          }
+        },
+        {
+          "name": "Internal Update Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "x-internal-api-key", "value": "{{internalApiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{manualRegisterEmployeeId}}\",\n  \"role\": \"ROLE_ADMIN\"\n}" },
+            "url": { "raw": "{{authBaseUrl}}/internal/auth/role", "host": ["{{authBaseUrl}}"], "path": ["internal", "auth", "role"] }
+          }
+        },
+        {
+          "name": "Internal Update Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "x-internal-api-key", "value": "{{internalApiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{manualRegisterEmployeeId}}\",\n  \"password\": \"{{manualRegisterPassword}}\"\n}" },
+            "url": { "raw": "{{authBaseUrl}}/internal/auth/password", "host": ["{{authBaseUrl}}"], "path": ["internal", "auth", "password"] }
+          }
+        },
+        {
+          "name": "Internal Update Email",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "x-internal-api-key", "value": "{{internalApiKey}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{manualRegisterEmployeeId}}\",\n  \"email\": \"updated.{{manualRegisterEmail}}\"\n}" },
+            "url": { "raw": "{{authBaseUrl}}/internal/auth/email", "host": ["{{authBaseUrl}}"], "path": ["internal", "auth", "email"] }
+          }
+        },
+        {
+          "name": "Internal Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "x-internal-api-key", "value": "{{internalApiKey}}" }],
+            "url": { "raw": "{{authBaseUrl}}/internal/auth/{{manualRegisterEmployeeId}}", "host": ["{{authBaseUrl}}"], "path": ["internal", "auth", "{{manualRegisterEmployeeId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee Service",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{employeeBaseUrl}}/health", "host": ["{{employeeBaseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "Department Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{employeeBaseUrl}}/admin/departments/health", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "departments", "health"] }
+          }
+        },
+        {
+          "name": "Departments",
+          "item": [
+            {
+              "name": "Create Department",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('departmentId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"departmentName\": \"Engineering Platform\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/admin/departments", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "departments"] }
+              }
+            },
+            {
+              "name": "List Departments",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/departments", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "departments"] }
+              }
+            },
+            {
+              "name": "Get Department By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/departments/{{departmentId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "departments", "{{departmentId}}"] }
+              }
+            },
+            {
+              "name": "Update Department",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"departmentName\": \"Engineering & Platform\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/admin/departments/{{departmentId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "departments", "{{departmentId}}"] }
+              }
+            },
+            {
+              "name": "Delete Department",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/departments/{{departmentId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "departments", "{{departmentId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Designations",
+          "item": [
+            {
+              "name": "Create Designation",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('designationId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"designationName\": \"Senior Software Engineer\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/admin/designations", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "designations"] }
+              }
+            },
+            {
+              "name": "List Designations",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/designations", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "designations"] }
+              }
+            },
+            {
+              "name": "Get Designation By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/designations/{{designationId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "designations", "{{designationId}}"] }
+              }
+            },
+            {
+              "name": "Update Designation",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"designationName\": \"Lead Software Engineer\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/admin/designations/{{designationId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "designations", "{{designationId}}"] }
+              }
+            },
+            {
+              "name": "Delete Designation",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/designations/{{designationId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "designations", "{{designationId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Employees",
+          "item": [
+            {
+              "name": "Create Employee",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "const id = data.employeeId || data.id || '';",
+                      "if (id) pm.environment.set('createdEmployeeId', id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Postman Employee\",\n  \"email\": \"postman.employee@example.com\",\n  \"employeeId\": \"{{createdEmployeeId}}\",\n  \"password\": \"postman123\",\n  \"mobile\": \"+919999999999\",\n  \"role\": \"ROLE_EMPLOYEE\",\n  \"departmentId\": {{departmentId}},\n  \"designationId\": {{designationId}},\n  \"loginAllowed\": true\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee", "host": ["{{employeeBaseUrl}}"], "path": ["employee"] }
+              }
+            },
+            {
+              "name": "List Employees",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee", "host": ["{{employeeBaseUrl}}"], "path": ["employee"] }
+              }
+            },
+            {
+              "name": "List All Employees",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/all", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "all"] }
+              }
+            },
+            {
+              "name": "Get Employee By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{createdEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{createdEmployeeId}}"] }
+              }
+            },
+            {
+              "name": "Employee Exists",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/exists/{{createdEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "exists", "{{createdEmployeeId}}"] }
+              }
+            },
+            {
+              "name": "Employee Meta By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/meta/{{createdEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "meta", "{{createdEmployeeId}}"] }
+              }
+            },
+            {
+              "name": "Employee Meta Search",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/meta/search?query=postman",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "meta", "search"],
+                  "query": [{ "key": "query", "value": "postman" }]
+                }
+              }
+            },
+            {
+              "name": "Employee Birthdays",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/birthdays?date=1998-08-10",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "birthdays"],
+                  "query": [{ "key": "date", "value": "1998-08-10" }]
+                }
+              }
+            },
+            {
+              "name": "Get Me",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/me", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "me"] }
+              }
+            },
+            {
+              "name": "Update Employee By Id",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Postman Employee Updated\",\n  \"email\": \"postman.employee.updated@example.com\",\n  \"mobile\": \"+918888888888\",\n  \"departmentId\": {{departmentId}},\n  \"designationId\": {{designationId}},\n  \"role\": \"ROLE_EMPLOYEE\",\n  \"loginAllowed\": true,\n  \"active\": true\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{createdEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{createdEmployeeId}}"] }
+              }
+            },
+            {
+              "name": "Update My Profile JSON",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Dummy Employee Updated\",\n  \"language\": \"English\",\n  \"country\": \"India\",\n  \"mobile\": \"+918888888888\",\n  \"address\": \"Bangalore\",\n  \"about\": \"Updated from Postman\",\n  \"maritalStatus\": \"Single\",\n  \"slackMemberId\": \"dummy.slack\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/me", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "me"] }
+              }
+            },
+            {
+              "name": "Update My Profile Multipart",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "name", "value": "Dummy Employee Updated", "type": "text" },
+                    { "key": "language", "value": "English", "type": "text" },
+                    { "key": "profilePicture", "type": "file", "src": "{{sampleFilePath}}" }
+                  ]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/me", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "me"] }
+              }
+            },
+            {
+              "name": "Change Employee Role",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"role\": \"ROLE_EMPLOYEE\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{createdEmployeeId}}/role", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{createdEmployeeId}}", "role"] }
+              }
+            },
+            {
+              "name": "Delete Employee",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{createdEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{createdEmployeeId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invite And Registration",
+          "item": [
+            {
+              "name": "Invite Employee",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "pm.environment.set('inviteToken', data.token || data.inviteToken || '');",
+                      "pm.environment.set('inviteEmail', data.email || 'invite.user@example.com');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Invite User\",\n  \"email\": \"invite.user@example.com\",\n  \"role\": \"ROLE_EMPLOYEE\",\n  \"departmentId\": {{departmentId}},\n  \"designationId\": {{designationId}}\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/invite", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "invite"] }
+              }
+            },
+            {
+              "name": "Check Invite",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{inviteEmail}}\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/invite/check", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "invite", "check"] }
+              }
+            },
+            {
+              "name": "Accept Invite",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "pm.environment.set('registrationToken', data.registrationToken || data.token || '');"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/invite/check/accept?token={{inviteToken}}",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "invite", "check", "accept"],
+                  "query": [{ "key": "token", "value": "{{inviteToken}}" }]
+                }
+              }
+            },
+            {
+              "name": "Complete Registration",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "const id = data.employeeId || data.id || '';",
+                      "if (id) pm.environment.set('registeredEmployeeId', id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"{{registrationToken}}\",\n  \"employeeId\": \"EMP-POSTMAN-REG\",\n  \"password\": \"reg12345\",\n  \"mobile\": \"+917777777777\",\n  \"birthday\": \"1998-08-10\",\n  \"gender\": \"Male\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employeeRegister/complete-registration", "host": ["{{employeeBaseUrl}}"], "path": ["employeeRegister", "complete-registration"] }
+              }
+            },
+            {
+              "name": "Change Registered Employee Id",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"EMP-POSTMAN-REG-2\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employeeRegister/{{registeredEmployeeId}}/change-id", "host": ["{{employeeBaseUrl}}"], "path": ["employeeRegister", "{{registeredEmployeeId}}", "change-id"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attendance",
+          "item": [
+            {
+              "name": "Clock In",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/clock/in", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "clock", "in"] }
+              }
+            },
+            {
+              "name": "Clock Out",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/clock/out", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "clock", "out"] }
+              }
+            },
+            {
+              "name": "Clock Activities",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/clock/activities", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "clock", "activities"] }
+              }
+            },
+            {
+              "name": "Mark Attendance",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"employeeId\": \"{{employeeEmployeeId}}\",\n  \"date\": \"2026-03-29\",\n  \"status\": \"PRESENT\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/mark", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "mark"] }
+              }
+            },
+            {
+              "name": "Mark Attendance By Employees",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"date\": \"2026-03-30\",\n  \"status\": \"PRESENT\",\n  \"employeeIds\": [\"{{employeeEmployeeId}}\", \"{{createdEmployeeId}}\"]\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/mark/by-employees", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "mark", "by-employees"] }
+              }
+            },
+            {
+              "name": "Mark Attendance Month",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"employeeId\": \"{{employeeEmployeeId}}\",\n  \"year\": 2026,\n  \"month\": 4,\n  \"status\": \"PRESENT\",\n  \"days\": [1, 2, 3]\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/mark/month", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "mark", "month"] }
+              }
+            },
+            {
+              "name": "Get All Attendance",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/GetAllAttendance", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "GetAllAttendance"] }
+              }
+            },
+            {
+              "name": "Get My Attendance",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/me", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "me"] }
+              }
+            },
+            {
+              "name": "Get Attendance Summary",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/summary", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "summary"] }
+              }
+            },
+            {
+              "name": "Get Attendance Between",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/attendance/between?employeeId={{employeeEmployeeId}}&from=2026-03-01&to=2026-03-31",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "attendance", "between"],
+                  "query": [
+                    { "key": "employeeId", "value": "{{employeeEmployeeId}}" },
+                    { "key": "from", "value": "2026-03-01" },
+                    { "key": "to", "value": "2026-03-31" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Attendance Calendar",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/attendance/calendar?employeeId={{employeeEmployeeId}}&year=2026&month=4",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "attendance", "calendar"],
+                  "query": [
+                    { "key": "employeeId", "value": "{{employeeEmployeeId}}" },
+                    { "key": "year", "value": "2026" },
+                    { "key": "month", "value": "4" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Attendance Exists",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/attendance/exists?employeeId={{employeeEmployeeId}}&date=2026-03-29",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "attendance", "exists"],
+                  "query": [
+                    { "key": "employeeId", "value": "{{employeeEmployeeId}}" },
+                    { "key": "date", "value": "2026-03-29" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Attendance Detail By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/{{attendanceId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "{{attendanceId}}"] }
+              }
+            },
+            {
+              "name": "All Saved By Employee",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/{{employeeEmployeeId}}/all-saved", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "{{employeeEmployeeId}}", "all-saved"] }
+              }
+            },
+            {
+              "name": "WFH By Date",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/attendance/wfh?date=2026-04-03",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "attendance", "wfh"],
+                  "query": [{ "key": "date", "value": "2026-04-03" }]
+                }
+              }
+            },
+            {
+              "name": "WFH Between",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/attendance/wfh/between?from=2026-04-01&to=2026-04-30",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "attendance", "wfh", "between"],
+                  "query": [
+                    { "key": "from", "value": "2026-04-01" },
+                    { "key": "to", "value": "2026-04-30" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Edit Attendance",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"HOME\"\n}" },
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/attendance/edit?employeeId={{employeeEmployeeId}}&date=2026-04-03",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "attendance", "edit"],
+                  "query": [
+                    { "key": "employeeId", "value": "{{employeeEmployeeId}}" },
+                    { "key": "date", "value": "2026-04-03" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Attendance",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/attendance/delete?employeeId={{employeeEmployeeId}}&date=2026-03-29",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "attendance", "delete"],
+                  "query": [
+                    { "key": "employeeId", "value": "{{employeeEmployeeId}}" },
+                    { "key": "date", "value": "2026-03-29" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Import Attendance CSV",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "overwrite", "value": "false", "type": "text" },
+                    { "key": "file", "type": "file", "src": "{{attendanceCsvPath}}" }
+                  ]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/attendance/import/csv", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "attendance", "import", "csv"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Leave And Quota",
+          "item": [
+            {
+              "name": "Apply Leave",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "const id = data.id || data.leaveId || '';",
+                      "if (id) pm.environment.set('leaveId', String(id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"leaveType\": \"CASUAL\",\n  \"fromDate\": \"2026-04-10\",\n  \"toDate\": \"2026-04-11\",\n  \"reason\": \"Personal work\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/apply", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "apply"] }
+              }
+            },
+            {
+              "name": "Admin Apply Leave",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"employeeIds\": [\"{{employeeEmployeeId}}\", \"{{createdEmployeeId}}\"],\n  \"leaveType\": \"SICK\",\n  \"fromDate\": \"2026-04-15\",\n  \"toDate\": \"2026-04-15\",\n  \"reason\": \"Medical leave\",\n  \"status\": \"APPROVED\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/admin/apply", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "admin", "apply"] }
+              }
+            },
+            {
+              "name": "My Leaves",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/my-leaves", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "my-leaves"] }
+              }
+            },
+            {
+              "name": "All Leaves",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves"] }
+              }
+            },
+            {
+              "name": "Pending Leaves",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/pending", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "pending"] }
+              }
+            },
+            {
+              "name": "Leave Detail",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/{{leaveId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "{{leaveId}}"] }
+              }
+            },
+            {
+              "name": "Leaves By Employee",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/employee/{{employeeEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "employee", "{{employeeEmployeeId}}"] }
+              }
+            },
+            {
+              "name": "Update Leave Status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"APPROVED\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/{{leaveId}}/status", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "{{leaveId}}", "status"] }
+              }
+            },
+            {
+              "name": "Leave Calendar",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/api/leaves/calendar?year=2026&month=4",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "api", "leaves", "calendar"],
+                  "query": [
+                    { "key": "year", "value": "2026" },
+                    { "key": "month", "value": "4" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Leave",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/{{leaveId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "{{leaveId}}"] }
+              }
+            },
+            {
+              "name": "Delete Leave Document",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/{{leaveId}}/documents/{{leaveDocumentId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "{{leaveId}}", "documents", "{{leaveDocumentId}}"] }
+              }
+            },
+            {
+              "name": "Upload Leave Document",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "leaveType", "value": "SICK", "type": "text" },
+                    { "key": "fromDate", "value": "2026-04-21", "type": "text" },
+                    { "key": "toDate", "value": "2026-04-21", "type": "text" },
+                    { "key": "reason", "value": "Doctor visit", "type": "text" },
+                    { "key": "documents", "type": "file", "src": "{{sampleFilePath}}" }
+                  ]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/leaves/apply", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "leaves", "apply"] }
+              }
+            },
+            {
+              "name": "My Leave Quota",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/leave-quota/me", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "leave-quota", "me"] }
+              }
+            },
+            {
+              "name": "Leave Quota By Employee",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/leave-quota/employee/{{employeeEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "leave-quota", "employee", "{{employeeEmployeeId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Holidays",
+          "item": [
+            {
+              "name": "Create Holiday",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('holidayId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"occasion\": \"Ambedkar Jayanti\",\n  \"date\": \"2026-04-14\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/holidays", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "holidays"] }
+              }
+            },
+            {
+              "name": "Bulk Create Holidays",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"holidays\": [\n    { \"occasion\": \"Labour Day\", \"date\": \"2026-05-01\" },\n    { \"occasion\": \"Independence Day\", \"date\": \"2026-08-15\" }\n  ]\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/holidays/bulk", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "holidays", "bulk"] }
+              }
+            },
+            {
+              "name": "Generate Default Weekly Holidays",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"year\": 2026,\n  \"month\": 4,\n  \"weekday\": \"SUNDAY\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/holidays/default-weekly", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "holidays", "default-weekly"] }
+              }
+            },
+            {
+              "name": "List Holidays",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/holidays", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "holidays"] }
+              }
+            },
+            {
+              "name": "Get Holiday By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/holidays/{{holidayId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "holidays", "{{holidayId}}"] }
+              }
+            },
+            {
+              "name": "Holiday Month View",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": {
+                  "raw": "{{employeeBaseUrl}}/employee/api/holidays/month?year=2026&month=4",
+                  "host": ["{{employeeBaseUrl}}"],
+                  "path": ["employee", "api", "holidays", "month"],
+                  "query": [
+                    { "key": "year", "value": "2026" },
+                    { "key": "month", "value": "4" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Upcoming Holidays",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/holidays/upcoming", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "holidays", "upcoming"] }
+              }
+            },
+            {
+              "name": "Update Holiday",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"occasion\": \"Ambedkar Jayanti Updated\",\n  \"date\": \"2026-04-14\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/holidays/{{holidayId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "holidays", "{{holidayId}}"] }
+              }
+            },
+            {
+              "name": "Toggle Holiday Status",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/holidays/{{holidayId}}/toggle-status", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "holidays", "{{holidayId}}", "toggle-status"] }
+              }
+            },
+            {
+              "name": "Delete Holiday",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/holidays/{{holidayId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "holidays", "{{holidayId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Company",
+          "item": [
+            {
+              "name": "Create Company JSON",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"ERP Company\",\n  \"email\": \"hello@erpcompany.com\",\n  \"mobile\": \"+911234567890\",\n  \"address\": \"Bangalore\",\n  \"website\": \"https://example.com\",\n  \"logoUrl\": \"https://example.com/logo.png\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/company", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "company"] }
+              }
+            },
+            {
+              "name": "Create Company Multipart",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "name", "value": "ERP Company", "type": "text" },
+                    { "key": "email", "value": "hello@erpcompany.com", "type": "text" },
+                    { "key": "mobile", "value": "+911234567890", "type": "text" },
+                    { "key": "address", "value": "Bangalore", "type": "text" },
+                    { "key": "website", "value": "https://example.com", "type": "text" },
+                    { "key": "logoFile", "type": "file", "src": "{{sampleFilePath}}" }
+                  ]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/company", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "company"] }
+              }
+            },
+            {
+              "name": "Get Company",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/company", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "company"] }
+              }
+            },
+            {
+              "name": "Update Company",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"ERP Company Updated\",\n  \"email\": \"updated@erpcompany.com\",\n  \"mobile\": \"+919876543210\",\n  \"address\": \"Pune\",\n  \"website\": \"https://example.org\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/company", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "company"] }
+              }
+            },
+            {
+              "name": "Delete Company",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/company", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "company"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Emergency Contacts",
+          "item": [
+            {
+              "name": "Create Emergency Contact",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('emergencyContactId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Emergency Contact\",\n  \"relationship\": \"Brother\",\n  \"mobile\": \"+919111111111\",\n  \"email\": \"emergency@example.com\",\n  \"address\": \"Delhi\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/emergency-contacts", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "emergency-contacts"] }
+              }
+            },
+            {
+              "name": "List Emergency Contacts",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/emergency-contacts", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "emergency-contacts"] }
+              }
+            },
+            {
+              "name": "Get Emergency Contact",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/emergency-contacts/{{emergencyContactId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "emergency-contacts", "{{emergencyContactId}}"] }
+              }
+            },
+            {
+              "name": "Update Emergency Contact",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Emergency Contact Updated\",\n  \"relationship\": \"Sister\",\n  \"mobile\": \"+919222222222\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/emergency-contacts/{{emergencyContactId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "emergency-contacts", "{{emergencyContactId}}"] }
+              }
+            },
+            {
+              "name": "Delete Emergency Contact",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/emergency-contacts/{{emergencyContactId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "emergency-contacts", "{{emergencyContactId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Documents",
+          "item": [
+            {
+              "name": "Create Employee Document JSON",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('documentId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"documentName\": \"resume.pdf\",\n  \"documentType\": \"resume\",\n  \"documentUrl\": \"https://example.com/resume.pdf\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/documents", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "documents"] }
+              }
+            },
+            {
+              "name": "Create Employee Document Multipart",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "documentName", "value": "resume.pdf", "type": "text" },
+                    { "key": "documentType", "value": "resume", "type": "text" },
+                    { "key": "file", "type": "file", "src": "{{sampleFilePath}}" }
+                  ]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/documents", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "documents"] }
+              }
+            },
+            {
+              "name": "List Employee Documents",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/documents", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "documents"] }
+              }
+            },
+            {
+              "name": "Get Employee Document",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/documents/{{documentId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "documents", "{{documentId}}"] }
+              }
+            },
+            {
+              "name": "Download Employee Document",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/documents/{{documentId}}/download", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "documents", "{{documentId}}", "download"] }
+              }
+            },
+            {
+              "name": "Delete Employee Document",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/{{employeeEmployeeId}}/documents/{{documentId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "{{employeeEmployeeId}}", "documents", "{{documentId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications And Push",
+          "item": [
+            {
+              "name": "Send Notification",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "const first = Array.isArray(data) ? data[0] : data;",
+                      "const id = first && (first.id || first.notificationId) ? String(first.id || first.notificationId) : '';",
+                      "if (id) pm.environment.set('notificationId', id);"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"employeeId\": \"{{employeeEmployeeId}}\",\n  \"title\": \"Welcome\",\n  \"message\": \"Welcome to the company\",\n  \"type\": \"INFO\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/send", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "send"] }
+              }
+            },
+            {
+              "name": "Send Many Notifications",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"employeeIds\": [\"{{employeeEmployeeId}}\", \"{{createdEmployeeId}}\"],\n  \"title\": \"Bulk Notice\",\n  \"message\": \"Company-wide update\",\n  \"type\": \"INFO\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/send-many", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "send-many"] }
+              }
+            },
+            {
+              "name": "Internal Send Notification",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "x-internal-api-key", "value": "{{internalApiKey}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"employeeId\": \"{{employeeEmployeeId}}\",\n  \"title\": \"Internal Notice\",\n  \"message\": \"Sent from internal API\",\n  \"type\": \"INFO\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/internal/send", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "internal", "send"] }
+              }
+            },
+            {
+              "name": "Internal Send Many Notifications",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "x-internal-api-key", "value": "{{internalApiKey}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"employeeIds\": [\"{{employeeEmployeeId}}\", \"{{createdEmployeeId}}\"],\n  \"title\": \"Internal Bulk Notice\",\n  \"message\": \"Sent from internal bulk API\",\n  \"type\": \"INFO\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/internal/send-many", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "internal", "send-many"] }
+              }
+            },
+            {
+              "name": "My Notifications",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/me", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "me"] }
+              }
+            },
+            {
+              "name": "Get Notification By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/{{notificationId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "{{notificationId}}"] }
+              }
+            },
+            {
+              "name": "Mark Notification Read",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/{{notificationId}}/mark-read", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "{{notificationId}}", "mark-read"] }
+              }
+            },
+            {
+              "name": "Mark Notification Unread",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/{{notificationId}}/mark-unread", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "{{notificationId}}", "mark-unread"] }
+              }
+            },
+            {
+              "name": "Delete My Notification",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/{{notificationId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "{{notificationId}}"] }
+              }
+            },
+            {
+              "name": "Delete Notification As Admin",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/admin/{{notificationId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "admin", "{{notificationId}}"] }
+              }
+            },
+            {
+              "name": "Clear My Notifications",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/notifications/clear", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "notifications", "clear"] }
+              }
+            },
+            {
+              "name": "Register Push Token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{pushToken}}\",\n  \"provider\": \"EXPO\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/push/register", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "push", "register"] }
+              }
+            },
+            {
+              "name": "Unregister Push Token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{pushToken}}\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/push/unregister", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "push", "unregister"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Awards",
+          "item": [
+            {
+              "name": "Create Award",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('awardId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "title", "value": "Star Performer", "type": "text" },
+                    { "key": "description", "value": "Outstanding contribution", "type": "text" },
+                    { "key": "icon", "type": "file", "src": "{{sampleFilePath}}" }
+                  ]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/awards", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "awards"] }
+              }
+            },
+            {
+              "name": "List Awards",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/awards", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "awards"] }
+              }
+            },
+            {
+              "name": "List Active Awards",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/awards/active", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "awards", "active"] }
+              }
+            },
+            {
+              "name": "Get Award By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/awards/{{awardId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "awards", "{{awardId}}"] }
+              }
+            },
+            {
+              "name": "Update Award",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "title", "value": "Star Performer Updated", "type": "text" },
+                    { "key": "description", "value": "Updated description", "type": "text" }
+                  ]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/awards/{{awardId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "awards", "{{awardId}}"] }
+              }
+            },
+            {
+              "name": "Toggle Award Status",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/awards/{{awardId}}/toggle-status", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "awards", "{{awardId}}", "toggle-status"] }
+              }
+            },
+            {
+              "name": "Delete Award",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/api/awards/{{awardId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "api", "awards", "{{awardId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Appreciations",
+          "item": [
+            {
+              "name": "Create Appreciation",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('appreciationId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "employeeId", "value": "{{employeeEmployeeId}}", "type": "text" },
+                    { "key": "title", "value": "Great Work", "type": "text" },
+                    { "key": "message", "value": "Excellent collaboration", "type": "text" },
+                    { "key": "image", "type": "file", "src": "{{sampleFilePath}}" }
+                  ]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/appreciations", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "appreciations"] }
+              }
+            },
+            {
+              "name": "List Appreciations",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/appreciations", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "appreciations"] }
+              }
+            },
+            {
+              "name": "Appreciations By Employee",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/appreciations/employee/{{employeeEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "appreciations", "employee", "{{employeeEmployeeId}}"] }
+              }
+            },
+            {
+              "name": "Get Appreciation By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/appreciations/{{appreciationId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "appreciations", "{{appreciationId}}"] }
+              }
+            },
+            {
+              "name": "Update Appreciation",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "title", "value": "Great Work Updated", "type": "text" },
+                    { "key": "message", "value": "Updated appreciation message", "type": "text" }
+                  ]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/admin/appreciations/{{appreciationId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "admin", "appreciations", "{{appreciationId}}"] }
+              }
+            },
+            {
+              "name": "Delete Appreciation",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/admin/appreciations/{{appreciationId}}", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "admin", "appreciations", "{{appreciationId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Promotions",
+          "item": [
+            {
+              "name": "Create Promotion",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('promotionId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"previousDesignationId\": {{designationId}},\n  \"newDesignationId\": {{designationId}},\n  \"effectiveDate\": \"2026-04-20\",\n  \"reason\": \"Excellent performance\"\n}"
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/admin/api/promotions/employee/{{employeeEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "api", "promotions", "employee", "{{employeeEmployeeId}}"] }
+              }
+            },
+            {
+              "name": "List Promotions",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/api/promotions", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "api", "promotions"] }
+              }
+            },
+            {
+              "name": "Promotions By Employee",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/api/promotions/employee/{{employeeEmployeeId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "api", "promotions", "employee", "{{employeeEmployeeId}}"] }
+              }
+            },
+            {
+              "name": "Get Promotion By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/api/promotions/{{promotionId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "api", "promotions", "{{promotionId}}"] }
+              }
+            },
+            {
+              "name": "Update Promotion",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Updated promotion reason\"\n}" },
+                "url": { "raw": "{{employeeBaseUrl}}/admin/api/promotions/{{promotionId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "api", "promotions", "{{promotionId}}"] }
+              }
+            },
+            {
+              "name": "Delete Promotion",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/admin/api/promotions/{{promotionId}}", "host": ["{{employeeBaseUrl}}"], "path": ["admin", "api", "promotions", "{{promotionId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Excel Import Export",
+          "item": [
+            {
+              "name": "Import Employees CSV",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [{ "key": "file", "type": "file", "src": "{{employeeCsvPath}}" }]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/excel/import-csv", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "excel", "import-csv"] }
+              }
+            },
+            {
+              "name": "Import Employees XLSX",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [{ "key": "file", "type": "file", "src": "{{employeeXlsxPath}}" }]
+                },
+                "url": { "raw": "{{employeeBaseUrl}}/employee/excel/import-xlsx", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "excel", "import-xlsx"] }
+              }
+            },
+            {
+              "name": "Export Employees XLSX",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{employeeBaseUrl}}/employee/excel/export", "host": ["{{employeeBaseUrl}}"], "path": ["employee", "excel", "export"] }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
