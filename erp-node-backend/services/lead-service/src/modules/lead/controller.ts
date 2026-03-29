@@ -4,7 +4,7 @@ import { URL } from "node:url";
 import { getAuthContext } from "../../common/auth.js";
 import { readJsonBody, sendJson } from "../../common/http.js";
 import type { LeadConfig } from "../../config/env.js";
-import type { LeadPayload, DealPayload, NotePayload } from "../../services/lead.service.js";
+import type { LeadPayload, DealPayload, NotePayload, TagPayload } from "../../services/lead.service.js";
 import type { LeadService } from "../../services/lead.service.js";
 
 export async function handleLeadRoutes(
@@ -158,6 +158,27 @@ export async function handleLeadRoutes(
 
   if (dealNoteByIdMatch && method === "DELETE") {
     await service.deleteDealNote(Number(dealNoteByIdMatch[1]), Number(dealNoteByIdMatch[2]), auth());
+    response.writeHead(204);
+    response.end();
+    return true;
+  }
+
+  const dealTagsMatch = pathname.match(/^\/deals\/(\d+)\/tags$/);
+  if (dealTagsMatch && method === "GET") {
+    sendJson(response, 200, await service.getDealTags(Number(dealTagsMatch[1]), auth()));
+    return true;
+  }
+
+  if (dealTagsMatch && method === "POST") {
+    const payload = await readJsonBody<TagPayload>(request);
+    await service.addDealTag(Number(dealTagsMatch[1]), payload, auth());
+    sendJson(response, 200, { message: "Success" });
+    return true;
+  }
+
+  const dealTagByIdMatch = pathname.match(/^\/deals\/(\d+)\/tags\/(\d+)$/);
+  if (dealTagByIdMatch && method === "DELETE") {
+    await service.deleteDealTag(Number(dealTagByIdMatch[1]), Number(dealTagByIdMatch[2]), auth());
     response.writeHead(204);
     response.end();
     return true;

@@ -54,6 +54,10 @@ export interface NotePayload {
   note: string;
 }
 
+export interface TagPayload {
+  tagName: string;
+}
+
 export interface PriorityPayload {
   status: string;
   color?: string;
@@ -327,6 +331,49 @@ export class LeadService {
 
     const deals = await this.prisma.deal.findMany({ orderBy: { id: "desc" } });
     return Promise.all(deals.map((deal) => this.enrichDeal(deal)));
+  }
+
+  async getDealTags(dealId: number, auth: AuthContext) {
+    await this.getDealById(dealId, auth);
+    return this.prisma.dealTag.findMany({
+      where: { dealId },
+      orderBy: { id: "desc" }
+    });
+  }
+
+  async addDealTag(dealId: number, payload: TagPayload, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can add tags to deals");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, "Deal not found");
+    }
+
+    if (!payload.tagName?.trim()) {
+      throw new HttpError(400, "tagName is required");
+    }
+
+    await this.prisma.dealTag.create({
+      data: {
+        dealId,
+        tagName: payload.tagName.trim()
+      }
+    });
+  }
+
+  async deleteDealTag(dealId: number, tagId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can delete deal tags");
+    }
+
+    const tag = await this.prisma.dealTag.findUnique({ where: { id: tagId } });
+    if (!tag || tag.dealId !== dealId) {
+      throw new HttpError(404, "Tag not found for this deal");
+    }
+
+    await this.prisma.dealTag.delete({ where: { id: tagId } });
   }
 
   async updateDeal(id: number, payload: DealPayload, auth: AuthContext, authorizationHeader?: string) {
@@ -748,9 +795,14 @@ export class LeadService {
     updatedAt: Date;
   }) {
     const watcherIds = Array.isArray(deal.dealWatchers) ? deal.dealWatchers.filter((value): value is string => typeof value === "string") : [];
+    const tags = await this.prisma.dealTag.findMany({
+      where: { dealId: deal.id },
+      orderBy: { id: "desc" }
+    });
 
     return {
       ...deal,
+      tags,
       dealAgentMeta: deal.dealAgent ? await this.employeeClient.getEmployeeMeta(deal.dealAgent) : null,
       dealWatchersMeta: await Promise.all(watcherIds.map((watcher) => this.employeeClient.getEmployeeMeta(watcher))),
       lead: deal.leadId ? await this.prisma.lead.findUnique({ where: { id: deal.leadId } }) : null

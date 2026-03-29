@@ -50,6 +50,7 @@ model Deal {
   updatedAt         DateTime   @updatedAt
   lead              Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
   notes             DealNote[]
+  tags              DealTag[]
 }
 
 model Stage {
@@ -95,6 +96,15 @@ model DealNote {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model DealTag {
+  id         Int      @id @default(autoincrement())
+  dealId     Int
+  tagName    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deal       Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
 }
 
 model Priority {

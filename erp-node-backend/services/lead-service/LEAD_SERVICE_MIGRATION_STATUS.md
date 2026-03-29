@@ -14,6 +14,7 @@
 - lead source create/list/delete
 - lead notes CRUD
 - deal notes CRUD
+- deal tags CRUD
 - global priorities CRUD
 - employee-service validation and meta enrichment
 
@@ -24,7 +25,6 @@
 - deal comments
 - deal followups
 - followup summary
-- deal tags
 - deal employee assignments
 - deal documents
 - client-service conversion flow
@@ -34,10 +34,9 @@
 
 ## Recommended Next Order
 
-1. deal tags
-2. deal comments
-3. deal employee assignments
-4. deal followups + summary
-5. deal documents
-6. lead/deal CSV imports
-7. client conversion + notifications
+1. deal comments
+2. deal employee assignments
+3. deal followups + summary
+4. deal documents
+5. lead/deal CSV imports
+6. client conversion + notifications

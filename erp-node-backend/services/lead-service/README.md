@@ -12,6 +12,7 @@ Implemented in this first pass:
 - lead source CRUD
 - lead notes CRUD
 - deal notes CRUD
+- deal tags CRUD
 - global priorities CRUD
 - employee-service validation/meta integration
 
@@ -19,7 +20,6 @@ Still pending for later parity passes:
 
 - deal comments
 - deal followups and summary
-- deal tag management
 - deal assigned employees
 - deal documents
 - lead/deal CSV import
