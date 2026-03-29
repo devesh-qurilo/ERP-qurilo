@@ -52,6 +52,7 @@ model Deal {
   notes             DealNote[]
   tags              DealTag[]
   comments          DealComment[]
+  assignedEmployees DealEmployee[]
 }
 
 model Stage {
@@ -116,6 +117,17 @@ model DealComment {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model DealEmployee {
+  id         Int      @id @default(autoincrement())
+  dealId     Int
+  employeeId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deal       Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, employeeId])
 }
 
 model Priority {

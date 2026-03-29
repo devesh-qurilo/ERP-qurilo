@@ -62,6 +62,10 @@ export interface CommentPayload {
   commentText: string;
 }
 
+export interface DealEmployeeAssignmentPayload {
+  employeeIds: string[];
+}
+
 export interface PriorityPayload {
   status: string;
   color?: string;
@@ -441,6 +445,83 @@ export class LeadService {
     }
 
     await this.prisma.dealComment.delete({ where: { id: commentId } });
+  }
+
+  async listDealEmployees(dealId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can access deal employees");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, "Deal not found");
+    }
+
+    const assignments = await this.prisma.dealEmployee.findMany({
+      where: { dealId },
+      orderBy: { id: "asc" }
+    });
+
+    return Promise.all(assignments.map(async (assignment) => {
+      const meta = await this.employeeClient.getEmployeeMeta(assignment.employeeId);
+      return meta ?? { employeeId: assignment.employeeId };
+    }));
+  }
+
+  async assignDealEmployees(
+    dealId: number,
+    payload: DealEmployeeAssignmentPayload,
+    auth: AuthContext,
+    authorizationHeader?: string
+  ) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can access deal employees");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, "Deal not found");
+    }
+
+    const employeeIds = Array.isArray(payload.employeeIds) ? payload.employeeIds.filter(Boolean) : [];
+
+    for (const employeeId of employeeIds) {
+      await this.employeeClient.ensureEmployeeExists(employeeId, authorizationHeader);
+      await this.prisma.dealEmployee.upsert({
+        where: {
+          dealId_employeeId: {
+            dealId,
+            employeeId
+          }
+        },
+        create: {
+          dealId,
+          employeeId
+        },
+        update: {}
+      });
+    }
+  }
+
+  async removeDealEmployee(dealId: number, employeeId: string, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can access deal employees");
+    }
+
+    const assignment = await this.prisma.dealEmployee.findFirst({
+      where: {
+        dealId,
+        employeeId
+      }
+    });
+
+    if (!assignment) {
+      throw new HttpError(404, "Assigned employee not found for this deal");
+    }
+
+    await this.prisma.dealEmployee.delete({
+      where: { id: assignment.id }
+    });
   }
 
   async updateDeal(id: number, payload: DealPayload, auth: AuthContext, authorizationHeader?: string) {
@@ -870,11 +951,22 @@ export class LeadService {
       where: { dealId: deal.id },
       orderBy: { createdAt: "desc" }
     });
+    const assignedEmployeeRows = await this.prisma.dealEmployee.findMany({
+      where: { dealId: deal.id },
+      orderBy: { id: "asc" }
+    });
+    const assignedEmployeesMeta = await Promise.all(
+      assignedEmployeeRows.map(async (row) => {
+        const meta = await this.employeeClient.getEmployeeMeta(row.employeeId);
+        return meta ?? { employeeId: row.employeeId };
+      })
+    );
 
     return {
       ...deal,
       tags,
       comments,
+      assignedEmployeesMeta,
       dealAgentMeta: deal.dealAgent ? await this.employeeClient.getEmployeeMeta(deal.dealAgent) : null,
       dealWatchersMeta: await Promise.all(watcherIds.map((watcher) => this.employeeClient.getEmployeeMeta(watcher))),
       lead: deal.leadId ? await this.prisma.lead.findUnique({ where: { id: deal.leadId } }) : null

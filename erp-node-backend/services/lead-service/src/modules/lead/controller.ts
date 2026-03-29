@@ -4,7 +4,14 @@ import { URL } from "node:url";
 import { getAuthContext } from "../../common/auth.js";
 import { readJsonBody, sendJson } from "../../common/http.js";
 import type { LeadConfig } from "../../config/env.js";
-import type { LeadPayload, DealPayload, NotePayload, TagPayload, CommentPayload } from "../../services/lead.service.js";
+import type {
+  LeadPayload,
+  DealPayload,
+  NotePayload,
+  TagPayload,
+  CommentPayload,
+  DealEmployeeAssignmentPayload
+} from "../../services/lead.service.js";
 import type { LeadService } from "../../services/lead.service.js";
 
 export async function handleLeadRoutes(
@@ -205,6 +212,28 @@ export async function handleLeadRoutes(
 
   if (dealCommentByIdMatch && method === "DELETE") {
     await service.deleteDealComment(Number(dealCommentByIdMatch[1]), Number(dealCommentByIdMatch[2]), auth());
+    response.writeHead(204);
+    response.end();
+    return true;
+  }
+
+  const dealEmployeesMatch = pathname.match(/^\/deals\/(\d+)\/employees$/);
+  if (dealEmployeesMatch && method === "GET") {
+    sendJson(response, 200, await service.listDealEmployees(Number(dealEmployeesMatch[1]), auth()));
+    return true;
+  }
+
+  if (dealEmployeesMatch && method === "POST") {
+    const payload = await readJsonBody<DealEmployeeAssignmentPayload>(request);
+    await service.assignDealEmployees(Number(dealEmployeesMatch[1]), payload, auth(), request.headers.authorization);
+    response.writeHead(200);
+    response.end();
+    return true;
+  }
+
+  const dealEmployeeByIdMatch = pathname.match(/^\/deals\/(\d+)\/employees\/([^/]+)$/);
+  if (dealEmployeeByIdMatch && method === "DELETE") {
+    await service.removeDealEmployee(Number(dealEmployeeByIdMatch[1]), decodeURIComponent(dealEmployeeByIdMatch[2]), auth());
     response.writeHead(204);
     response.end();
     return true;
