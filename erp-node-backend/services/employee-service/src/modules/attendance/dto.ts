@@ -9,6 +9,23 @@ export interface AttendancePayloadDto {
   halfDay?: boolean;
 }
 
+export interface BulkAttendanceRequestDto {
+  employeeIds?: string[];
+  dates?: string[];
+  payload?: AttendancePayloadDto;
+  overwrite?: boolean;
+  markedBy?: string | null;
+}
+
+export interface MonthAttendanceRequestDto {
+  year?: number;
+  month?: number;
+  employeeIds?: string[];
+  payload?: AttendancePayloadDto;
+  overwrite?: boolean;
+  markedBy?: string | null;
+}
+
 export interface LeaveApplyDto {
   leaveType?: "CASUAL" | "SICK" | "EARNED";
   durationType?: "FULL_DAY" | "MULTIPLE" | "HALF_DAY" | "SECOND_HALF";

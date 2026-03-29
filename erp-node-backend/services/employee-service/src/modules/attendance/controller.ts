@@ -2,7 +2,13 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { HttpError } from "../../common/errors.js";
 import { readJsonBody, sendJson } from "../../common/http.js";
-import type { AttendancePayloadDto, LeaveApplyDto, LeaveStatusUpdateDto } from "./dto.js";
+import type {
+  AttendancePayloadDto,
+  BulkAttendanceRequestDto,
+  LeaveApplyDto,
+  LeaveStatusUpdateDto,
+  MonthAttendanceRequestDto
+} from "./dto.js";
 import type { AttendanceLeaveService } from "../../services/attendance-leave.service.js";
 import { getAuthContext, requireRole } from "../../utils/auth-context.js";
 
@@ -16,6 +22,86 @@ export async function handleAttendanceLeaveRoutes(
   const pathname = url.pathname;
 
   try {
+    if (request.method === "POST" && pathname === "/employee/attendance/mark") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      const body = await readJsonBody<BulkAttendanceRequestDto>(request);
+      sendJson(response, 200, await attendanceLeaveService.markAttendanceForEmployees(body, auth.employeeId));
+      return true;
+    }
+
+    if (request.method === "POST" && pathname === "/employee/attendance/mark/by-employees") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      const body = await readJsonBody<BulkAttendanceRequestDto>(request);
+      sendJson(response, 200, await attendanceLeaveService.markAttendanceForEmployees(body, auth.employeeId));
+      return true;
+    }
+
+    if (request.method === "POST" && pathname === "/employee/attendance/mark/month") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      const body = await readJsonBody<MonthAttendanceRequestDto>(request);
+      sendJson(response, 200, await attendanceLeaveService.markAttendanceForMonth(body, auth.employeeId));
+      return true;
+    }
+
+    if (request.method === "GET" && pathname === "/employee/attendance/GetAllAttendance") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      sendJson(response, 200, await attendanceLeaveService.getAllSavedAttendance());
+      return true;
+    }
+
+    if (request.method === "GET" && pathname === "/employee/attendance/between") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      const employeeIds = url.searchParams.getAll("employeeIds");
+      sendJson(
+        response,
+        200,
+        await attendanceLeaveService.getAttendanceBetween(
+          url.searchParams.get("from") ?? "",
+          url.searchParams.get("to") ?? "",
+          employeeIds
+        )
+      );
+      return true;
+    }
+
+    if (request.method === "GET" && pathname === "/employee/attendance/calendar") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_EMPLOYEE", "ROLE_ADMIN");
+      const employeeId = url.searchParams.get("employeeId") || auth.employeeId;
+      sendJson(
+        response,
+        200,
+        await attendanceLeaveService.getAttendanceCalendar(
+          employeeId,
+          url.searchParams.get("from") ?? "",
+          url.searchParams.get("to") ?? ""
+        )
+      );
+      return true;
+    }
+
+    if (request.method === "GET" && pathname === "/employee/attendance/exists") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_EMPLOYEE", "ROLE_ADMIN");
+      const employeeId = url.searchParams.get("employeeId") || auth.employeeId;
+      sendJson(response, 200, await attendanceLeaveService.attendanceExists(employeeId, url.searchParams.get("date") ?? ""));
+      return true;
+    }
+
+    if (request.method === "DELETE" && pathname === "/employee/attendance/delete") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      await attendanceLeaveService.deleteAttendance(url.searchParams.get("employeeId") ?? "", url.searchParams.get("date") ?? "");
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ status: "success" }));
+      return true;
+    }
+
     if (request.method === "POST" && pathname === "/employee/attendance/clock/in") {
       const auth = getAuthContext(request, jwtSecret);
       const body = await readJsonBody<AttendancePayloadDto>(request);

@@ -11,7 +11,13 @@ import type {
 import { DurationType, LeaveStatus, LeaveType } from "@prisma/client";
 
 import { HttpError } from "../common/errors.js";
-import type { AttendancePayloadDto, LeaveApplyDto, LeaveStatusUpdateDto } from "../modules/attendance/dto.js";
+import type {
+  AttendancePayloadDto,
+  BulkAttendanceRequestDto,
+  LeaveApplyDto,
+  LeaveStatusUpdateDto,
+  MonthAttendanceRequestDto
+} from "../modules/attendance/dto.js";
 
 const DEFAULT_LEAVE_TYPES = ["SICK", "CASUAL", "EARNED"] as const;
 const DEFAULT_TOTAL = 5;
@@ -124,6 +130,93 @@ export class AttendanceLeaveService {
     return attendances.map((attendance) => mapAttendance(attendance));
   }
 
+  async getAllSavedAttendance(): Promise<Record<string, unknown>[]> {
+    const attendances = await this.prisma.attendance.findMany({
+      include: {
+        employee: true,
+        markedBy: true
+      },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }]
+    });
+
+    return attendances.map((attendance) => mapAttendance(attendance));
+  }
+
+  async markAttendanceForEmployees(
+    request: BulkAttendanceRequestDto,
+    fallbackMarkedById?: string
+  ): Promise<Record<string, Record<string, string>>> {
+    const employeeIds = request.employeeIds?.map(normalizeEmployeeId).filter(Boolean) ?? [];
+    const dates = request.dates?.map((date) => requireDate(date, "Invalid date")) ?? [];
+    const payload = request.payload;
+
+    if (!employeeIds.length) {
+      throw new HttpError(400, "employeeIds cannot be empty");
+    }
+
+    if (!dates.length) {
+      throw new HttpError(400, "dates cannot be empty");
+    }
+
+    if (!payload) {
+      throw new HttpError(400, "payload is required");
+    }
+
+    const markedById = fallbackMarkedById ?? request.markedBy ?? null;
+    const markedByEmployee = markedById
+      ? await this.prisma.employee.findUnique({
+          where: { employeeId: normalizeEmployeeId(markedById) },
+          select: { employeeId: true }
+        })
+      : null;
+
+    const result: Record<string, Record<string, string>> = {};
+
+    for (const employeeId of employeeIds) {
+      await this.ensureEmployee(employeeId);
+      result[employeeId] = {};
+
+      for (const date of dates) {
+        const status = await this.prisma.$transaction((tx) =>
+          markAdminAttendance(tx, employeeId, date, payload, Boolean(request.overwrite), markedByEmployee?.employeeId ?? null)
+        );
+        result[employeeId][toDateKey(date)] = status;
+      }
+    }
+
+    return result;
+  }
+
+  async markAttendanceForMonth(
+    request: MonthAttendanceRequestDto,
+    fallbackMarkedById?: string
+  ): Promise<Record<string, Record<string, string>>> {
+    if (!request.year || !request.month) {
+      throw new HttpError(400, "year and month are required");
+    }
+
+    const monthStart = new Date(Date.UTC(request.year, request.month - 1, 1));
+    const monthEnd = new Date(Date.UTC(request.year, request.month, 0));
+    const dates: string[] = [];
+    const current = new Date(monthStart);
+
+    while (current <= monthEnd) {
+      dates.push(toDateKey(current));
+      current.setUTCDate(current.getUTCDate() + 1);
+    }
+
+    return this.markAttendanceForEmployees(
+      {
+        employeeIds: request.employeeIds,
+        dates,
+        payload: request.payload,
+        overwrite: request.overwrite,
+        markedBy: request.markedBy
+      },
+      fallbackMarkedById
+    );
+  }
+
   async getAttendanceSummary(employeeId: string, from: string, to: string): Promise<Record<string, unknown>> {
     const fromDate = requireDate(from, "from is required");
     const toDate = requireDate(to, "to is required");
@@ -146,6 +239,151 @@ export class AttendanceLeaveService {
       lateDays: attendances.filter((item) => item.late).length,
       halfDays: attendances.filter((item) => item.halfDay).length
     };
+  }
+
+  async getAttendanceBetween(from: string, to: string, employeeIds: string[]): Promise<Record<string, unknown>[]> {
+    const fromDate = requireDate(from, "from is required");
+    const toDate = requireDate(to, "to is required");
+    const normalizedEmployeeIds = employeeIds.map(normalizeEmployeeId).filter(Boolean);
+
+    if (!normalizedEmployeeIds.length) {
+      throw new HttpError(400, "employeeIds cannot be empty");
+    }
+
+    const attendances = await this.prisma.attendance.findMany({
+      where: {
+        employeeId: { in: normalizedEmployeeIds },
+        date: {
+          gte: fromDate,
+          lte: toDate
+        }
+      },
+      include: {
+        employee: true,
+        markedBy: true
+      },
+      orderBy: [{ date: "asc" }, { employeeId: "asc" }]
+    });
+
+    return attendances.map((attendance) => mapAttendance(attendance));
+  }
+
+  async getAttendanceCalendar(employeeId: string, from: string, to: string): Promise<Record<string, Record<string, unknown>>> {
+    const normalizedEmployeeId = normalizeEmployeeId(employeeId);
+    const fromDate = requireDate(from, "from is required");
+    const toDate = requireDate(to, "to is required");
+
+    await this.ensureEmployee(normalizedEmployeeId);
+
+    const attendances = await this.prisma.attendance.findMany({
+      where: {
+        employeeId: normalizedEmployeeId,
+        date: {
+          gte: fromDate,
+          lte: toDate
+        }
+      },
+      include: {
+        employee: true,
+        markedBy: true
+      }
+    });
+
+    const approvedLeaves = await this.prisma.leave.findMany({
+      where: {
+        employeeId: normalizedEmployeeId,
+        status: LeaveStatus.APPROVED,
+        OR: [
+          {
+            singleDate: {
+              gte: fromDate,
+              lte: toDate
+            }
+          },
+          {
+            startDate: { lte: toDate },
+            endDate: { gte: fromDate }
+          }
+        ]
+      }
+    });
+
+    const attendanceMap = new Map(attendances.map((attendance) => [toDateKey(attendance.date), attendance]));
+    const leaveDateKeys = new Set<string>();
+
+    for (const leave of approvedLeaves) {
+      for (const dateKey of expandLeaveDateKeys(leave)) {
+        leaveDateKeys.add(dateKey);
+      }
+    }
+
+    const calendar: Record<string, Record<string, unknown>> = {};
+    const cursor = new Date(fromDate);
+
+    while (cursor <= toDate) {
+      const dateKey = toDateKey(cursor);
+      const attendance = attendanceMap.get(dateKey);
+
+      if (attendance) {
+        calendar[dateKey] = mapAttendance(attendance as AttendanceWithEmployee);
+      } else {
+        calendar[dateKey] = {
+          date: new Date(cursor),
+          employeeId: normalizedEmployeeId,
+          status: leaveDateKeys.has(dateKey) ? "LEAVE" : "ABSENT",
+          holiday: false,
+          leave: leaveDateKeys.has(dateKey),
+          isPresent: false
+        };
+      }
+
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    return calendar;
+  }
+
+  async attendanceExists(employeeId: string, date: string): Promise<boolean> {
+    const normalizedEmployeeId = normalizeEmployeeId(employeeId);
+    const targetDate = requireDate(date, "date is required");
+
+    const attendance = await this.prisma.attendance.findFirst({
+      where: {
+        employeeId: normalizedEmployeeId,
+        date: targetDate
+      },
+      select: { id: true }
+    });
+
+    return Boolean(attendance);
+  }
+
+  async deleteAttendance(employeeId: string, date: string): Promise<void> {
+    const normalizedEmployeeId = normalizeEmployeeId(employeeId);
+    const targetDate = requireDate(date, "date is required");
+
+    await this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findFirst({
+        where: {
+          employeeId: normalizedEmployeeId,
+          date: targetDate
+        }
+      });
+
+      if (!attendance) {
+        throw new HttpError(404, "Attendance not found");
+      }
+
+      await tx.attendanceActivity.deleteMany({
+        where: {
+          attendanceId: attendance.id
+        }
+      });
+
+      await tx.attendance.delete({
+        where: { id: attendance.id }
+      });
+    });
   }
 
   async applyLeave(employeeId: string, request: LeaveApplyDto): Promise<Record<string, unknown>> {
@@ -404,8 +642,9 @@ export class AttendanceLeaveService {
   }
 
   private async ensureEmployee(employeeId: string): Promise<Employee> {
+    const normalizedEmployeeId = normalizeEmployeeId(employeeId);
     const employee = await this.prisma.employee.findUnique({
-      where: { employeeId }
+      where: { employeeId: normalizedEmployeeId }
     });
 
     if (!employee) {
@@ -442,6 +681,65 @@ export class AttendanceLeaveService {
 
     return quota;
   }
+}
+
+async function markAdminAttendance(
+  prisma: Prisma.TransactionClient,
+  employeeId: string,
+  date: Date,
+  payload: AttendancePayloadDto,
+  overwrite: boolean,
+  markedById: string | null
+): Promise<string> {
+  const existingAttendance = await prisma.attendance.findFirst({
+    where: {
+      employeeId,
+      date
+    }
+  });
+
+  const attendance = existingAttendance
+    ? await prisma.attendance.update({
+        where: { id: existingAttendance.id },
+        data: {
+          clockInTime: parseTime(payload.clockInTime),
+          clockInLocation: payload.clockInLocation?.trim() || null,
+          clockInWorkingFrom: payload.clockInWorkingFrom?.trim() || null,
+          clockOutTime: parseTime(payload.clockOutTime),
+          clockOutLocation: payload.clockOutLocation?.trim() || null,
+          clockOutWorkingFrom: payload.clockOutWorkingFrom?.trim() || null,
+          late: payload.late ?? false,
+          halfDay: payload.halfDay ?? false,
+          overwritten: overwrite,
+          isPresent: true,
+          markedById
+        }
+      })
+    : await prisma.attendance.create({
+        data: {
+          employeeId,
+          date,
+          clockInTime: parseTime(payload.clockInTime),
+          clockInLocation: payload.clockInLocation?.trim() || null,
+          clockInWorkingFrom: payload.clockInWorkingFrom?.trim() || null,
+          clockOutTime: parseTime(payload.clockOutTime),
+          clockOutLocation: payload.clockOutLocation?.trim() || null,
+          clockOutWorkingFrom: payload.clockOutWorkingFrom?.trim() || null,
+          late: payload.late ?? false,
+          halfDay: payload.halfDay ?? false,
+          overwritten: overwrite,
+          isPresent: true,
+          markedById
+        }
+      });
+
+  await prisma.attendanceActivity.deleteMany({
+    where: {
+      attendanceId: attendance.id
+    }
+  });
+
+  return "PRESENT";
 }
 
 async function recomputeAttendanceSummary(
@@ -680,6 +978,34 @@ function parseTime(value?: string | null): Date | null {
 
 function startOfDay(date: Date): Date {
   const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
+  copy.setUTCHours(0, 0, 0, 0);
   return copy;
+}
+
+function normalizeEmployeeId(employeeId: string): string {
+  return employeeId.trim().toUpperCase();
+}
+
+function toDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function expandLeaveDateKeys(leave: Leave): string[] {
+  if (leave.singleDate) {
+    return [toDateKey(leave.singleDate)];
+  }
+
+  if (leave.startDate && leave.endDate) {
+    const keys: string[] = [];
+    const cursor = new Date(leave.startDate);
+
+    while (cursor <= leave.endDate) {
+      keys.push(toDateKey(cursor));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    return keys;
+  }
+
+  return [];
 }
