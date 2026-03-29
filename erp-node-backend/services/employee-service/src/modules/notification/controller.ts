@@ -90,6 +90,15 @@ export async function handleNotificationRoutes(
       response.end();
       return true;
     }
+
+    if (request.method === "DELETE" && pathname.match(/^\/employee\/notifications\/admin\/\d+$/)) {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      await notificationService.deleteById(Number(pathname.split("/").at(-1)), auth.employeeId, true);
+      response.writeHead(200);
+      response.end();
+      return true;
+    }
   } catch (error) {
     handleError(response, error);
     return true;
