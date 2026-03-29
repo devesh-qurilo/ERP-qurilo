@@ -15,6 +15,8 @@ import { handleEmployeeRoutes } from "./modules/employee/controller.js";
 import { getHealthResponse } from "./modules/health/controller.js";
 import { handleHolidayRoutes } from "./modules/holiday/controller.js";
 import { handleInviteRoutes } from "./modules/invite/controller.js";
+import { handleNotificationRoutes } from "./modules/notification/controller.js";
+import { handlePushRoutes } from "./modules/push/controller.js";
 import { AttendanceLeaveService } from "./services/attendance-leave.service.js";
 import { AuthSyncService } from "./services/auth-sync.service.js";
 import { CompanyService } from "./services/company.service.js";
@@ -22,6 +24,8 @@ import { DocumentService } from "./services/document.service.js";
 import { EmergencyService } from "./services/emergency.service.js";
 import { EmployeeService } from "./services/employee.service.js";
 import { HolidayService } from "./services/holiday.service.js";
+import { NotificationService } from "./services/notification.service.js";
+import { PushService } from "./services/push.service.js";
 
 const config = getEmployeeConfig();
 const logger = createLogger(config.serviceName);
@@ -32,6 +36,8 @@ const companyService = new CompanyService(prisma);
 const documentService = new DocumentService(prisma);
 const emergencyService = new EmergencyService(prisma);
 const holidayService = new HolidayService(prisma);
+const pushService = new PushService(prisma);
+const notificationService = new NotificationService(prisma, pushService);
 const employeeService = new EmployeeService(
   prisma,
   new AuthSyncService(config.authServiceUrl, config.internalApiKey),
@@ -63,6 +69,14 @@ const server = createServer(async (request, response) => {
     }
 
     if (await handleDocumentRoutes(request, response, documentService, config.jwtSecret)) {
+      return;
+    }
+
+    if (await handleNotificationRoutes(request, response, notificationService, config.jwtSecret, config.internalApiKey)) {
+      return;
+    }
+
+    if (await handlePushRoutes(request, response, pushService, config.jwtSecret)) {
       return;
     }
 

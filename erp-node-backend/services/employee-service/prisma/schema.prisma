@@ -96,6 +96,9 @@ model Employee {
   leaveQuotas               LeaveQuota[]
   emergencyContacts         EmergencyContact[]
   documents                 EmployeeDocument[]
+  sentNotifications         Notification[]    @relation("NotificationSender")
+  receivedNotifications     Notification[]    @relation("NotificationReceiver")
+  pushTokens                PushToken[]
 
   @@map("employees")
 }
@@ -169,6 +172,35 @@ model EmployeeDocument {
   employee   Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
 
   @@map("employee_documents")
+}
+
+model Notification {
+  id                 BigInt    @id @default(autoincrement())
+  senderEmployeeId   String?   @map("sender_employee_id")
+  receiverEmployeeId String    @map("receiver_employee_id")
+  title              String
+  message            String
+  type               String?
+  readFlag           Boolean   @default(false) @map("read_flag")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  readAt             DateTime? @map("read_at")
+  sender             Employee? @relation("NotificationSender", fields: [senderEmployeeId], references: [employeeId], onDelete: SetNull)
+  receiver           Employee  @relation("NotificationReceiver", fields: [receiverEmployeeId], references: [employeeId], onDelete: Cascade)
+
+  @@map("notification")
+}
+
+model PushToken {
+  id         BigInt    @id @default(autoincrement())
+  employeeId String    @map("employee_id")
+  provider   String
+  token      String    @unique @db.VarChar(500)
+  deviceInfo String?   @map("device_info")
+  lastSeen   DateTime? @default(now()) @map("last_seen")
+  employee   Employee  @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@index([employeeId], map: "idx_push_tokens_user")
+  @@map("push_tokens")
 }
 
 model Attendance {
