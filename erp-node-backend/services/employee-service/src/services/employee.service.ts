@@ -2,6 +2,7 @@ import { createHmac, randomUUID } from "node:crypto";
 
 import type { Department, Designation, Employee, EmployeeInvite, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import * as XLSX from "xlsx";
 
 import { HttpError } from "../common/errors.js";
 import type { DepartmentCreateDto, DepartmentUpdateDto } from "../modules/department/dto.js";
@@ -346,6 +347,235 @@ export class EmployeeService {
       totalElements: total,
       totalPages: Math.ceil(total / normalizedPageSize)
     };
+  }
+
+  async importEmployeesFromCsv(filename: string | null, csvText: string): Promise<Record<string, unknown>[]> {
+    const normalizedName = filename?.toLowerCase() ?? "";
+
+    if (!normalizedName.endsWith(".csv")) {
+      throw new HttpError(400, "File is not a CSV. Please upload a .csv file.");
+    }
+
+    const rows = parseEmployeeImportCsv(csvText);
+
+    if (!rows.length) {
+      throw new HttpError(400, "No valid entries found in CSV");
+    }
+
+    const results: Record<string, unknown>[] = [];
+
+    for (const row of rows) {
+      try {
+        const employee = await this.createImportedEmployee(row);
+        results.push({
+          employeeId: employee.employeeId,
+          status: "CREATED"
+        });
+      } catch (error) {
+        results.push({
+          name: row.name,
+          error: error instanceof Error ? error.message : "Import failed"
+        });
+      }
+    }
+
+    return results;
+  }
+
+  async exportEmployeesCsv(): Promise<string> {
+    const employees = await this.prisma.employee.findMany({
+      include: employeeInclude,
+      orderBy: { createdAt: "desc" }
+    });
+
+    const headers = [
+      "employeeId",
+      "name",
+      "email",
+      "gender",
+      "birthday",
+      "bloodGroup",
+      "joiningDate",
+      "language",
+      "country",
+      "mobile",
+      "address",
+      "about",
+      "departmentId",
+      "designationId",
+      "reportingToId",
+      "role",
+      "loginAllowed",
+      "receiveEmailNotification",
+      "hourlyRate",
+      "skills",
+      "probationEndDate",
+      "noticePeriodStartDate",
+      "noticePeriodEndDate",
+      "employmentType",
+      "maritalStatus",
+      "businessAddress",
+      "officeShift",
+      "active"
+    ];
+
+    const lines = [
+      headers.join(","),
+      ...employees.map((employee) =>
+        [
+          employee.employeeId,
+          employee.name,
+          employee.email,
+          employee.gender ?? "",
+          employee.birthday ? toDateKey(employee.birthday) : "",
+          employee.bloodGroup ?? "",
+          employee.joiningDate ? toDateKey(employee.joiningDate) : "",
+          employee.language ?? "",
+          employee.country ?? "",
+          employee.mobile ?? "",
+          employee.address ?? "",
+          employee.about ?? "",
+          employee.departmentId ? String(employee.departmentId) : "",
+          employee.designationId ? String(employee.designationId) : "",
+          employee.reportingToId ?? "",
+          employee.role,
+          String(employee.loginAllowed),
+          String(employee.receiveEmailNotification),
+          employee.hourlyRate ?? "",
+          employee.skills.join(","),
+          employee.probationEndDate ? toDateKey(employee.probationEndDate) : "",
+          employee.noticePeriodStartDate ? toDateKey(employee.noticePeriodStartDate) : "",
+          employee.noticePeriodEndDate ? toDateKey(employee.noticePeriodEndDate) : "",
+          employee.employmentType ?? "",
+          employee.maritalStatus ?? "",
+          employee.businessAddress ?? "",
+          employee.officeShift ?? "",
+          String(employee.active)
+        ]
+          .map(escapeCsvValue)
+          .join(",")
+      )
+    ];
+
+    return `\uFEFF${lines.join("\n")}`;
+  }
+
+  async importEmployeesFromXlsx(filename: string | null, fileBuffer: Buffer): Promise<Record<string, unknown>[]> {
+    const normalizedName = filename?.toLowerCase() ?? "";
+
+    if (!normalizedName.endsWith(".xlsx")) {
+      throw new HttpError(400, "File is not an XLSX. Please upload a .xlsx file.");
+    }
+
+    const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+    const sheetName = workbook.SheetNames[0];
+
+    if (!sheetName) {
+      throw new HttpError(400, "No valid entries found in XLSX");
+    }
+
+    const sheet = workbook.Sheets[sheetName];
+    const rows = (XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" }) as Array<Record<string, unknown>>)
+      .map((row) => mapExcelImportRow(row))
+      .filter((row) => row.name && row.email);
+
+    if (!rows.length) {
+      throw new HttpError(400, "No valid entries found in XLSX");
+    }
+
+    const results: Record<string, unknown>[] = [];
+
+    for (const row of rows) {
+      try {
+        const employee = await this.createImportedEmployee(row);
+        results.push({
+          employeeId: employee.employeeId,
+          status: "CREATED"
+        });
+      } catch (error) {
+        results.push({
+          name: row.name,
+          error: error instanceof Error ? error.message : "Import failed"
+        });
+      }
+    }
+
+    return results;
+  }
+
+  async exportEmployeesWorkbook(): Promise<Buffer> {
+    const employees = await this.prisma.employee.findMany({
+      include: employeeInclude,
+      orderBy: { createdAt: "desc" }
+    });
+
+    const rows = employees.map((employee) => ({
+      employeeId: employee.employeeId,
+      name: employee.name,
+      email: employee.email,
+      gender: employee.gender ?? "",
+      birthday: employee.birthday ? toDateKey(employee.birthday) : "",
+      bloodGroup: employee.bloodGroup ?? "",
+      joiningDate: employee.joiningDate ? toDateKey(employee.joiningDate) : "",
+      language: employee.language ?? "",
+      country: employee.country ?? "",
+      mobile: employee.mobile ?? "",
+      address: employee.address ?? "",
+      about: employee.about ?? "",
+      departmentId: employee.departmentId ? String(employee.departmentId) : "",
+      designationId: employee.designationId ? String(employee.designationId) : "",
+      reportingToId: employee.reportingToId ?? "",
+      role: employee.role,
+      loginAllowed: String(employee.loginAllowed),
+      receiveEmailNotification: String(employee.receiveEmailNotification),
+      hourlyRate: employee.hourlyRate ?? "",
+      skills: employee.skills.join(","),
+      probationEndDate: employee.probationEndDate ? toDateKey(employee.probationEndDate) : "",
+      noticePeriodStartDate: employee.noticePeriodStartDate ? toDateKey(employee.noticePeriodStartDate) : "",
+      noticePeriodEndDate: employee.noticePeriodEndDate ? toDateKey(employee.noticePeriodEndDate) : "",
+      employmentType: employee.employmentType ?? "",
+      maritalStatus: employee.maritalStatus ?? "",
+      businessAddress: employee.businessAddress ?? "",
+      officeShift: employee.officeShift ?? "",
+      active: String(employee.active)
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(rows, {
+      header: [
+        "employeeId",
+        "name",
+        "email",
+        "gender",
+        "birthday",
+        "bloodGroup",
+        "joiningDate",
+        "language",
+        "country",
+        "mobile",
+        "address",
+        "about",
+        "departmentId",
+        "designationId",
+        "reportingToId",
+        "role",
+        "loginAllowed",
+        "receiveEmailNotification",
+        "hourlyRate",
+        "skills",
+        "probationEndDate",
+        "noticePeriodStartDate",
+        "noticePeriodEndDate",
+        "employmentType",
+        "maritalStatus",
+        "businessAddress",
+        "officeShift",
+        "active"
+      ]
+    });
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+    return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
   }
 
   async getEmployee(employeeId: string): Promise<Record<string, unknown>> {
@@ -787,6 +1017,71 @@ export class EmployeeService {
     }
   }
 
+  private async createImportedEmployee(row: EmployeeImportRow): Promise<Employee> {
+    const name = row.name?.trim();
+    const email = row.email?.trim().toLowerCase();
+
+    if (!name || !email) {
+      throw new HttpError(400, "name and email are required");
+    }
+
+    const employeeId = row.employeeId?.trim() ? normalizeEmployeeId(row.employeeId) : await this.generateUniqueFinalEmployeeId();
+    const employeeById = await this.prisma.employee.findUnique({
+      where: { employeeId },
+      select: { employeeId: true }
+    });
+
+    if (employeeById) {
+      throw new HttpError(409, `Employee ID already exists: ${employeeId}`);
+    }
+
+    const employeeByEmail = await this.prisma.employee.findUnique({
+      where: { email },
+      select: { employeeId: true }
+    });
+
+    if (employeeByEmail) {
+      throw new HttpError(409, `Employee email already exists: ${email}`);
+    }
+
+    const mobile = row.mobile?.trim() || null;
+
+    if (mobile) {
+      const employeeByMobile = await this.prisma.employee.findUnique({
+        where: { mobile },
+        select: { employeeId: true }
+      });
+
+      if (employeeByMobile) {
+        throw new HttpError(409, `Employee mobile already exists: ${mobile}`);
+      }
+    }
+
+    const randomPassword = randomUUID().replace(/-/g, "").slice(0, 12);
+
+    return this.prisma.employee.create({
+      data: {
+        employeeId,
+        name,
+        email,
+        gender: row.gender?.trim() || "NA",
+        joiningDate: row.joiningDate ?? new Date(),
+        mobile,
+        password: await hashPassword(randomPassword),
+        about: "NA",
+        address: "NA",
+        language: "NA",
+        bloodGroup: "NA",
+        country: "NA",
+        birthday: new Date(Date.UTC(1970, 0, 1)),
+        loginAllowed: false,
+        receiveEmailNotification: true,
+        active: true,
+        role: "ROLE_EMPLOYEE"
+      }
+    });
+  }
+
   private async ensureDesignationExists(id: number): Promise<void> {
     const designation = await this.prisma.designation.findUnique({
       where: { id: BigInt(id) },
@@ -916,6 +1211,15 @@ interface InviteTokenClaims {
   exp: number;
 }
 
+interface EmployeeImportRow {
+  employeeId: string | null;
+  name: string | null;
+  email: string | null;
+  gender: string | null;
+  joiningDate: Date | null;
+  mobile: string | null;
+}
+
 function mapEmployee(employee: EmployeeWithRelations): Record<string, unknown> {
   return {
     employeeId: employee.employeeId,
@@ -1013,4 +1317,138 @@ function requireBirthdayDate(value: string): Date {
   }
 
   return parsed;
+}
+
+function parseEmployeeImportCsv(csvText: string): EmployeeImportRow[] {
+  const lines = csvText
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0);
+
+  if (!lines.length) {
+    return [];
+  }
+
+  const headers = parseCsvRow(lines[0]);
+  const indexMap = new Map<string, number>();
+  headers.forEach((header, index) => {
+    indexMap.set(header.trim(), index);
+  });
+
+  const rows: EmployeeImportRow[] = [];
+
+  for (const line of lines.slice(1)) {
+    const columns = parseCsvRow(line);
+    const row: EmployeeImportRow = {
+      employeeId: getCsvValue(columns, indexMap, "employeeId"),
+      name: getCsvValue(columns, indexMap, "name"),
+      email: getCsvValue(columns, indexMap, "email"),
+      gender: getCsvValue(columns, indexMap, "gender"),
+      joiningDate: parseImportDate(getCsvValue(columns, indexMap, "joiningDate")),
+      mobile: getCsvValue(columns, indexMap, "mobile")
+    };
+
+    if (row.name && row.email) {
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
+
+function mapExcelImportRow(row: Record<string, unknown>): EmployeeImportRow {
+  return {
+    employeeId: toImportString(row.employeeId),
+    name: toImportString(row.name),
+    email: toImportString(row.email),
+    gender: toImportString(row.gender),
+    joiningDate: parseImportDate(toImportString(row.joiningDate)),
+    mobile: toImportString(row.mobile)
+  };
+}
+
+function parseCsvRow(line: string): string[] {
+  const fields: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+
+    if (character === '"') {
+      if (inQuotes && line[index + 1] === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (character === "," && !inQuotes) {
+      fields.push(current);
+      current = "";
+      continue;
+    }
+
+    current += character;
+  }
+
+  fields.push(current);
+  return fields.map((field) => field.trim());
+}
+
+function getCsvValue(columns: string[], indexMap: Map<string, number>, key: string): string | null {
+  const index = indexMap.get(key);
+
+  if (index === undefined || index >= columns.length) {
+    return null;
+  }
+
+  const value = columns[index]?.trim();
+  return value ? value : null;
+}
+
+function parseImportDate(value: string | null): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  if (/^\d+(\.\d+)?$/.test(value)) {
+    const serialNumber = Number(value);
+
+    if (!Number.isNaN(serialNumber)) {
+      const parsed = XLSX.SSF.parse_date_code(serialNumber);
+
+      if (parsed) {
+        return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
+      }
+    }
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toImportString(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  return normalized ? normalized : null;
+}
+
+function escapeCsvValue(value: string | number | boolean | null): string {
+  const text = value === null ? "" : String(value);
+
+  if (/[",\n]/.test(text)) {
+    return `"${text.replaceAll('"', '""')}"`;
+  }
+
+  return text;
+}
+
+function toDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }

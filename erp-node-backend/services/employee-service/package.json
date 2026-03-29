@@ -18,7 +18,8 @@
     "@erp/shared-logger": "0.1.0",
     "@erp/shared-storage": "0.1.0",
     "@prisma/client": "^6.19.2",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

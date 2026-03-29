@@ -28,13 +28,27 @@ export async function handleEmployeeExcelRoutes(
       return true;
     }
 
+    if (request.method === "POST" && pathname === "/employee/excel/import-xlsx") {
+      const auth = getAuthContext(request, jwtSecret);
+      requireRole(auth, "ROLE_ADMIN");
+      const multipart = await parseMultipartFormData(request);
+      const file = multipart.files.file?.[0];
+
+      if (!file || !file.data.length) {
+        throw new HttpError(400, "Empty file");
+      }
+
+      sendJson(response, 200, await employeeService.importEmployeesFromXlsx(file.filename, file.data));
+      return true;
+    }
+
     if (request.method === "GET" && pathname === "/employee/excel/export") {
       const auth = getAuthContext(request, jwtSecret);
       requireRole(auth, "ROLE_ADMIN");
-      const exported = await employeeService.exportEmployeesCsv();
-      const fileName = `employees-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+      const exported = await employeeService.exportEmployeesWorkbook();
+      const fileName = `employees-${new Date().toISOString().replace(/[:.]/g, "-")}.xlsx`;
       response.writeHead(200, {
-        "content-type": "text/csv; charset=utf-8",
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "content-disposition": `attachment; filename="${fileName}"`
       });
       response.end(exported);
