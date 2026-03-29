@@ -88,5 +88,27 @@ services:
     ports:
       - "8083:8083"
 
+  lead-service:
+    build:
+      context: .
+      dockerfile: services/lead-service/Dockerfile
+    container_name: erp-node-lead-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      employee-service:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      LEAD_PORT: 8085
+      LEAD_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/erp_lead?schema=public
+      JWT_SECRET: ${JWT_SECRET:-replace-me}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-replace-me}
+      EMPLOYEE_SERVICE_URL: http://employee-service:8083
+    ports:
+      - "8085:8085"
+
 volumes:
   postgres_data:

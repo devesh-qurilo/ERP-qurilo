@@ -1,0 +1,24 @@
+{
+  "name": "@erp/lead-service",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/main.js",
+  "types": "dist/main.d.ts",
+  "scripts": {
+    "build": "prisma generate --schema prisma/schema.prisma && tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:push": "prisma db push --schema prisma/schema.prisma",
+    "lint": "echo 'lint not configured yet'",
+    "test": "echo 'tests not configured yet'"
+  },
+  "dependencies": {
+    "@erp/shared-auth": "0.1.0",
+    "@erp/shared-config": "0.1.0",
+    "@erp/shared-logger": "0.1.0",
+    "@prisma/client": "^6.19.2"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.2"
+  }
+}

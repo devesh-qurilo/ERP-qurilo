@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("LEAD_DATABASE_URL")
+}
+
+model Lead {
+  id                  Int        @id @default(autoincrement())
+  name                String
+  email               String?    @unique
+  clientCategory      String?
+  leadSource          String?
+  leadOwner           String
+  addedBy             String
+  status              String     @default("OPEN")
+  createDeal          Boolean    @default(false)
+  autoConvertToClient Boolean    @default(false)
+  companyName         String?
+  officialWebsite     String?
+  mobileNumber        String?    @unique
+  officePhone         String?
+  city                String?
+  state               String?
+  postalCode          String?
+  country             String?
+  companyAddress      String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  deals               Deal[]
+  notes               LeadNote[]
+}
+
+model Deal {
+  id                Int        @id @default(autoincrement())
+  title             String
+  value             Float?
+  currency          String?
+  dealStage         String?
+  dealAgent         String?
+  dealContact       String?
+  expectedCloseDate DateTime?
+  pipeline          String?
+  dealCategory      String?
+  dealWatchers      Json?
+  leadId            Int?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  lead              Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  notes             DealNote[]
+}
+
+model Stage {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  color     String?
+  position  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DealCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeadSource {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeadNote {
+  id         Int      @id @default(autoincrement())
+  leadId      Int
+  note        String
+  employeeId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+}
+
+model DealNote {
+  id         Int      @id @default(autoincrement())
+  dealId      Int
+  note        String
+  employeeId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deal        Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model Priority {
+  id        Int      @id @default(autoincrement())
+  status    String
+  color     String?
+  isGlobal  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
