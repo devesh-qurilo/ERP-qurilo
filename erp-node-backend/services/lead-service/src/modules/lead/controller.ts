@@ -14,7 +14,8 @@ import type {
   FollowupPayload,
   FollowupUpdatePayload,
   DealDocumentUploadPayload,
-  BulkDealOpsPayload
+  BulkDealOpsPayload,
+  PriorityAssignPayload
 } from "../../services/lead.service.js";
 import type { LeadService } from "../../services/lead.service.js";
 
@@ -259,6 +260,32 @@ export async function handleLeadRoutes(
     await service.removeDealEmployee(Number(dealEmployeeByIdMatch[1]), decodeURIComponent(dealEmployeeByIdMatch[2]), auth());
     response.writeHead(204);
     response.end();
+    return true;
+  }
+
+  const dealPriorityMatch = pathname.match(/^\/deals\/(\d+)\/priority$/);
+  if (dealPriorityMatch && method === "GET") {
+    sendJson(response, 200, await service.getPriorityByDeal(Number(dealPriorityMatch[1]), auth()));
+    return true;
+  }
+
+  if (dealPriorityMatch && method === "PUT") {
+    const payload = await readJsonBody<PriorityAssignPayload>(request);
+    sendJson(response, 200, await service.updateDealPriorityAssignment(Number(dealPriorityMatch[1]), payload, auth()));
+    return true;
+  }
+
+  if (dealPriorityMatch && method === "DELETE") {
+    await service.removePriorityFromDeal(Number(dealPriorityMatch[1]), auth());
+    response.writeHead(204);
+    response.end();
+    return true;
+  }
+
+  const dealPriorityAssignMatch = pathname.match(/^\/deals\/(\d+)\/priority\/assign$/);
+  if (dealPriorityAssignMatch && method === "POST") {
+    const payload = await readJsonBody<PriorityAssignPayload>(request);
+    sendJson(response, 200, await service.assignPriorityToDeal(Number(dealPriorityAssignMatch[1]), payload, auth()));
     return true;
   }
 

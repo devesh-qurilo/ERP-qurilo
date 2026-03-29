@@ -20,9 +20,10 @@ Implemented in this first pass:
 - lead/deal CSV imports
 - client conversion + notifications
 - bulk deal operations parity
+- stage and priority edge-case validation parity
 - global priorities CRUD
 - employee-service validation/meta integration
 
 Still pending for later parity passes:
 
-- stage and priority edge-case validation parity
+- none for practical migration

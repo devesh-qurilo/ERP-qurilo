@@ -108,6 +108,12 @@ export interface PriorityPayload {
   color?: string;
 }
 
+export interface PriorityAssignPayload {
+  priorityId?: number;
+  status?: string;
+  color?: string;
+}
+
 export class LeadService {
   constructor(
     private readonly prisma: PrismaClient,
@@ -1147,9 +1153,27 @@ export class LeadService {
       throw new HttpError(403, "Only admins can create stages");
     }
 
+    const name = payload.name?.trim();
+    if (!name) {
+      throw new HttpError(400, "Stage name is required");
+    }
+
+    const existing = await this.prisma.stage.findFirst({
+      where: {
+        name: {
+          equals: name,
+          mode: "insensitive"
+        }
+      }
+    });
+
+    if (existing) {
+      throw new HttpError(409, `Stage already exists: ${name}`);
+    }
+
     return this.prisma.stage.create({
       data: {
-        name: payload.name.trim(),
+        name,
         color: payload.color ?? null,
         position: payload.position ?? null
       }
@@ -1183,12 +1207,33 @@ export class LeadService {
       throw new HttpError(403, "Only admins can update stages");
     }
 
-    await this.getStage(id, auth);
+    const stage = await this.getStage(id, auth);
+
+    if (payload.name !== undefined) {
+      const name = payload.name.trim();
+      if (!name) {
+        throw new HttpError(400, "Stage name is required");
+      }
+
+      const duplicate = await this.prisma.stage.findFirst({
+        where: {
+          id: { not: id },
+          name: {
+            equals: name,
+            mode: "insensitive"
+          }
+        }
+      });
+
+      if (duplicate) {
+        throw new HttpError(409, `Stage already exists: ${name}`);
+      }
+    }
 
     return this.prisma.stage.update({
       where: { id },
       data: {
-        name: payload.name.trim(),
+        name: payload.name?.trim() || stage.name,
         color: payload.color ?? null,
         position: payload.position ?? null
       }
@@ -1353,11 +1398,17 @@ export class LeadService {
       throw new HttpError(403, "Only admins can create global priorities");
     }
 
+    const status = payload.status?.trim();
+    if (!status) {
+      throw new HttpError(400, "Priority status is required");
+    }
+
     return this.prisma.priority.create({
       data: {
-        status: payload.status.trim(),
+        status,
         color: payload.color ?? null,
-        isGlobal: true
+        isGlobal: true,
+        dealId: null
       }
     });
   }
@@ -1367,11 +1418,20 @@ export class LeadService {
       throw new HttpError(403, "Only admins can update global priorities");
     }
 
+    const priority = await this.prisma.priority.findUnique({ where: { id } });
+    if (!priority) {
+      throw new HttpError(404, `Priority not found with ID: ${id}`);
+    }
+
+    if (!priority.isGlobal) {
+      throw new HttpError(403, "Cannot update deal-specific priority globally");
+    }
+
     return this.prisma.priority.update({
       where: { id },
       data: {
-        status: payload.status.trim(),
-        color: payload.color ?? null
+        status: payload.status?.trim() || priority.status,
+        color: payload.color ?? priority.color
       }
     });
   }
@@ -1381,7 +1441,127 @@ export class LeadService {
       throw new HttpError(403, "Only admins can delete global priorities");
     }
 
+    const priority = await this.prisma.priority.findUnique({ where: { id } });
+    if (!priority) {
+      throw new HttpError(404, `Priority not found with ID: ${id}`);
+    }
+
+    if (!priority.isGlobal) {
+      throw new HttpError(403, "Cannot delete deal-specific priority globally");
+    }
+
     await this.prisma.priority.delete({ where: { id } });
+  }
+
+  async assignPriorityToDeal(dealId: number, payload: PriorityAssignPayload, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can manage priorities");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, `Deal not found with ID: ${dealId}`);
+    }
+
+    const existing = await this.prisma.priority.findMany({ where: { dealId } });
+    if (existing.length > 0) {
+      throw new HttpError(403, "Deal already has a priority assigned");
+    }
+
+    if (payload.priorityId !== undefined && payload.priorityId !== null) {
+      const globalPriority = await this.prisma.priority.findUnique({ where: { id: payload.priorityId } });
+      if (!globalPriority) {
+        throw new HttpError(404, `Priority not found with ID: ${payload.priorityId}`);
+      }
+
+      return this.prisma.priority.create({
+        data: {
+          status: globalPriority.status,
+          color: globalPriority.color,
+          isGlobal: false,
+          dealId
+        }
+      });
+    }
+
+    const status = payload.status?.trim();
+    if (!status) {
+      throw new HttpError(400, "status is required when priorityId is not provided");
+    }
+
+    return this.prisma.priority.create({
+      data: {
+        status,
+        color: payload.color ?? null,
+        isGlobal: false,
+        dealId
+      }
+    });
+  }
+
+  async updateDealPriorityAssignment(dealId: number, payload: PriorityAssignPayload, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can manage priorities");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, `Deal not found with ID: ${dealId}`);
+    }
+
+    const existing = await this.prisma.priority.findFirst({ where: { dealId } });
+    if (!existing) {
+      throw new HttpError(404, "No priority found for this deal. Please assign a priority first.");
+    }
+
+    if (payload.priorityId !== undefined && payload.priorityId !== null) {
+      const globalPriority = await this.prisma.priority.findUnique({ where: { id: payload.priorityId } });
+      if (!globalPriority) {
+        throw new HttpError(404, `Priority not found with ID: ${payload.priorityId}`);
+      }
+
+      return this.prisma.priority.update({
+        where: { id: existing.id },
+        data: {
+          status: globalPriority.status,
+          color: globalPriority.color
+        }
+      });
+    }
+
+    return this.prisma.priority.update({
+      where: { id: existing.id },
+      data: {
+        status: payload.status?.trim() || existing.status,
+        color: payload.color ?? existing.color
+      }
+    });
+  }
+
+  async removePriorityFromDeal(dealId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can manage priorities");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, `Deal not found with ID: ${dealId}`);
+    }
+
+    await this.prisma.priority.deleteMany({ where: { dealId } });
+  }
+
+  async getPriorityByDeal(dealId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can manage priorities");
+    }
+
+    const priority = await this.prisma.priority.findFirst({ where: { dealId } });
+    if (!priority) {
+      throw new HttpError(404, "No priority found for this deal");
+    }
+
+    return priority;
   }
 
   private ensureLeadAccess(lead: { leadOwner: string; addedBy: string }, auth: AuthContext): void {
@@ -1481,6 +1661,7 @@ export class LeadService {
       where: { dealId: deal.id },
       orderBy: { uploadedAt: "desc" }
     });
+    const priority = await this.prisma.priority.findFirst({ where: { dealId: deal.id } });
     const assignedEmployeesMeta = await Promise.all(
       assignedEmployeeRows.map(async (row) => {
         const meta = await this.employeeClient.getEmployeeMeta(row.employeeId);
@@ -1494,6 +1675,7 @@ export class LeadService {
       comments,
       followups,
       documents,
+      priority,
       assignedEmployeesMeta,
       dealAgentMeta: deal.dealAgent ? await this.employeeClient.getEmployeeMeta(deal.dealAgent) : null,
       dealWatchersMeta: await Promise.all(watcherIds.map((watcher) => this.employeeClient.getEmployeeMeta(watcher))),

@@ -22,13 +22,14 @@
 - lead/deal CSV imports
 - client conversion + notifications
 - bulk deal operations parity
+- stage and priority edge-case validation parity
 - global priorities CRUD
 - employee-service validation and meta enrichment
 
 ## Still Pending From Java Service
 
-- stage and priority edge-case validation parity
+- none for practical migration
 
 ## Recommended Next Order
 
-1. stage and priority edge-case validation parity
+1. freeze lead-service and move to next dependency service
