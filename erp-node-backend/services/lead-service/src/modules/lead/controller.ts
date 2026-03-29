@@ -13,7 +13,8 @@ import type {
   DealEmployeeAssignmentPayload,
   FollowupPayload,
   FollowupUpdatePayload,
-  DealDocumentUploadPayload
+  DealDocumentUploadPayload,
+  BulkDealOpsPayload
 } from "../../services/lead.service.js";
 import type { LeadService } from "../../services/lead.service.js";
 
@@ -156,6 +157,13 @@ export async function handleLeadRoutes(
       return true;
     }
     sendJson(response, 200, await service.updateDealStage(Number(dealStageMatch[1]), stage, auth()));
+    return true;
+  }
+
+  const dealBulkMatch = pathname.match(/^\/deals\/(\d+)\/bulk$/);
+  if (dealBulkMatch && method === "POST") {
+    const payload = await readJsonBody<BulkDealOpsPayload>(request);
+    sendJson(response, 200, await service.applyBulkDealOperations(Number(dealBulkMatch[1]), payload, auth(), request.headers.authorization));
     return true;
   }
 

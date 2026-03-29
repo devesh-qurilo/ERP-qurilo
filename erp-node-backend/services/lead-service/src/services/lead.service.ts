@@ -86,6 +86,16 @@ export interface DealDocumentUploadPayload {
   url?: string;
 }
 
+export interface BulkDealCommentPayload {
+  commentText: string;
+}
+
+export interface BulkDealOpsPayload {
+  tags?: string[];
+  employeeIds?: string[];
+  comments?: BulkDealCommentPayload[];
+}
+
 export interface ImportResultPayload {
   rowNumber: number;
   status: "CREATED" | "SKIPPED" | "ERROR";
@@ -952,6 +962,80 @@ export class LeadService {
     }
 
     return results;
+  }
+
+  async applyBulkDealOperations(
+    dealId: number,
+    payload: BulkDealOpsPayload,
+    auth: AuthContext,
+    authorizationHeader?: string
+  ) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can add it into deals");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, "Deal not found");
+    }
+
+    for (const tagName of payload.tags ?? []) {
+      const normalizedTag = tagName.trim();
+      if (!normalizedTag) {
+        continue;
+      }
+
+      await this.prisma.dealTag.create({
+        data: {
+          dealId,
+          tagName: normalizedTag
+        }
+      });
+    }
+
+    for (const employeeId of payload.employeeIds ?? []) {
+      const normalizedEmployeeId = employeeId.trim();
+      if (!normalizedEmployeeId) {
+        continue;
+      }
+
+      await this.employeeClient.ensureEmployeeExists(normalizedEmployeeId, authorizationHeader);
+      await this.prisma.dealEmployee.upsert({
+        where: {
+          dealId_employeeId: {
+            dealId,
+            employeeId: normalizedEmployeeId
+          }
+        },
+        create: {
+          dealId,
+          employeeId: normalizedEmployeeId
+        },
+        update: {}
+      });
+    }
+
+    for (const comment of payload.comments ?? []) {
+      const commentText = comment.commentText?.trim();
+      if (!commentText) {
+        continue;
+      }
+
+      await this.prisma.dealComment.create({
+        data: {
+          dealId,
+          employeeId: auth.userId,
+          commentText
+        }
+      });
+    }
+
+    const refreshed = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!refreshed) {
+      throw new HttpError(404, "Deal not found");
+    }
+
+    return this.enrichDeal(refreshed);
   }
 
   async updateDeal(id: number, payload: DealPayload, auth: AuthContext, authorizationHeader?: string) {

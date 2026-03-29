@@ -21,15 +21,14 @@
 - deal documents
 - lead/deal CSV imports
 - client conversion + notifications
+- bulk deal operations parity
 - global priorities CRUD
 - employee-service validation and meta enrichment
 
 ## Still Pending From Java Service
 
-- bulk deal operations parity
 - stage and priority edge-case validation parity
 
 ## Recommended Next Order
 
-1. bulk deal operations parity
-2. stage and priority edge-case validation parity
+1. stage and priority edge-case validation parity
