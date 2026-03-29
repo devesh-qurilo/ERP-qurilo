@@ -34,6 +34,12 @@ export async function handleLeadRoutes(
     return true;
   }
 
+  if (method === "POST" && pathname === "/leads/import/file") {
+    const { file } = await readImportRequest(request);
+    sendJson(response, 200, await service.importLeadsFromCsv(file, auth()));
+    return true;
+  }
+
   if (method === "GET" && pathname === "/leads") {
     sendJson(response, 200, await service.getAllLeads(auth()));
     return true;
@@ -98,6 +104,12 @@ export async function handleLeadRoutes(
   if (method === "POST" && pathname === "/deals") {
     const payload = await readJsonBody<DealPayload>(request);
     sendJson(response, 200, await service.createDeal(payload, auth(), request.headers.authorization));
+    return true;
+  }
+
+  if (method === "POST" && pathname === "/deals/import/csv") {
+    const { file } = await readImportRequest(request);
+    sendJson(response, 200, await service.importDealsFromCsv(file, auth()));
     return true;
   }
 
@@ -322,5 +334,21 @@ async function readDealDocumentRequest(request: IncomingMessage): Promise<{
       url: multipart.fields.url?.[0] ?? undefined
     },
     file: multipart.files.file?.[0] ?? multipart.files.document?.[0] ?? null
+  };
+}
+
+async function readImportRequest(request: IncomingMessage): Promise<{
+  file: { filename: string | null; contentType: string | null; data: Buffer } | null;
+}> {
+  const contentType = request.headers["content-type"] ?? "";
+
+  if (!contentType.includes("multipart/form-data")) {
+    return { file: null };
+  }
+
+  const multipart = await parseMultipartFormData(request);
+
+  return {
+    file: multipart.files.file?.[0] ?? null
   };
 }

@@ -85,6 +85,13 @@ export interface DealDocumentUploadPayload {
   url?: string;
 }
 
+export interface ImportResultPayload {
+  rowNumber: number;
+  status: "CREATED" | "SKIPPED" | "ERROR";
+  reason: string | null;
+  createdLeadId: number | null;
+}
+
 export interface PriorityPayload {
   status: string;
   color?: string;
@@ -755,6 +762,190 @@ export class LeadService {
     await this.prisma.dealDocument.delete({ where: { id: documentId } });
   }
 
+  async importLeadsFromCsv(
+    file: { filename: string | null; contentType: string | null; data: Buffer } | null,
+    auth: AuthContext
+  ): Promise<ImportResultPayload[]> {
+    if (!file?.data?.length) {
+      return [{ rowNumber: 0, status: "ERROR", reason: "Empty or missing file", createdLeadId: null }];
+    }
+
+    const rows = parseCsvRows(file.data.toString("utf8"));
+    if (!rows.length) {
+      return [{ rowNumber: 0, status: "ERROR", reason: "Failed to parse file: no rows found", createdLeadId: null }];
+    }
+
+    const [headerRow, ...dataRows] = rows;
+    const headerMap = buildHeaderMap(headerRow);
+    const results: ImportResultPayload[] = [];
+    const existingLeads = await this.prisma.lead.findMany();
+
+    for (const [index, row] of dataRows.entries()) {
+      const rowNumber = index + 2;
+      try {
+        const mapped = mapLeadImportRow(row, headerMap);
+        const name = safeTrim(mapped.name);
+        const email = safeTrim(mapped.email)?.toLowerCase() ?? null;
+        const mobileRaw = safeTrim(mapped.mobileNumber);
+        const mobileNormalized = normalizeMobileDigits(mobileRaw);
+
+        if (!name && !email && !mobileRaw) {
+          results.push({ rowNumber, status: "SKIPPED", reason: "Empty row (no name/email/mobile)", createdLeadId: null });
+          continue;
+        }
+
+        if (email && existingLeads.some((lead) => (lead.email ?? "").toLowerCase() === email)) {
+          results.push({ rowNumber, status: "SKIPPED", reason: "Duplicate email", createdLeadId: null });
+          continue;
+        }
+
+        if (mobileNormalized && existingLeads.some((lead) => normalizeMobileDigits(lead.mobileNumber) === mobileNormalized)) {
+          results.push({ rowNumber, status: "SKIPPED", reason: "Duplicate mobile", createdLeadId: null });
+          continue;
+        }
+
+        const lead = await this.prisma.lead.create({
+          data: {
+            name: name ?? "",
+            email,
+            companyName: safeTrim(mapped.companyName),
+            officialWebsite: safeTrim(mapped.officialWebsite),
+            mobileNumber: safeTrim(mapped.mobileNumber),
+            officePhone: safeTrim(mapped.officePhone),
+            city: safeTrim(mapped.city),
+            state: safeTrim(mapped.state),
+            postalCode: safeTrim(mapped.postalCode),
+            country: safeTrim(mapped.country),
+            companyAddress: safeTrim(mapped.companyAddress),
+            leadOwner: auth.userId,
+            addedBy: auth.userId
+          }
+        });
+
+        existingLeads.push(lead);
+        results.push({ rowNumber, status: "CREATED", reason: null, createdLeadId: lead.id });
+      } catch (error) {
+        results.push({
+          rowNumber,
+          status: "ERROR",
+          reason: `Parse or save error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          createdLeadId: null
+        });
+      }
+    }
+
+    return results;
+  }
+
+  async importDealsFromCsv(
+    file: { filename: string | null; contentType: string | null; data: Buffer } | null,
+    auth: AuthContext
+  ): Promise<ImportResultPayload[]> {
+    if (!file?.data?.length) {
+      return [{ rowNumber: 0, status: "ERROR", reason: "Empty or missing file", createdLeadId: null }];
+    }
+
+    const rows = parseCsvRows(file.data.toString("utf8"));
+    if (!rows.length) {
+      return [{ rowNumber: 0, status: "ERROR", reason: "Failed to parse file: no rows found", createdLeadId: null }];
+    }
+
+    const [headerRow, ...dataRows] = rows;
+    const headerMap = buildHeaderMap(headerRow);
+    const results: ImportResultPayload[] = [];
+
+    for (const [index, row] of dataRows.entries()) {
+      const rowNumber = index + 2;
+      try {
+        const mapped = mapDealImportRow(row, headerMap);
+        const title = safeTrim(mapped.title);
+        const leadName = safeTrim(mapped.leadName);
+
+        if (!title) {
+          results.push({ rowNumber, status: "SKIPPED", reason: "Missing title", createdLeadId: null });
+          continue;
+        }
+
+        if (!leadName) {
+          results.push({ rowNumber, status: "SKIPPED", reason: "Missing lead name", createdLeadId: null });
+          continue;
+        }
+
+        const lead = await this.prisma.lead.findFirst({
+          where: {
+            name: {
+              equals: leadName,
+              mode: "insensitive"
+            }
+          }
+        });
+
+        if (!lead) {
+          results.push({ rowNumber, status: "SKIPPED", reason: `Lead not found: ${leadName}`, createdLeadId: null });
+          continue;
+        }
+
+        const duplicate = await this.prisma.deal.findFirst({
+          where: {
+            title: {
+              equals: title,
+              mode: "insensitive"
+            },
+            leadId: lead.id
+          }
+        });
+
+        if (duplicate) {
+          results.push({ rowNumber, status: "SKIPPED", reason: "Duplicate deal (title + lead)", createdLeadId: null });
+          continue;
+        }
+
+        let value: number | null = null;
+        if (safeTrim(mapped.value)) {
+          const normalized = safeTrim(mapped.value)!.replaceAll(/[^0-9.\-]/g, "");
+          if (normalized) {
+            value = Number(normalized);
+            if (Number.isNaN(value)) {
+              results.push({ rowNumber, status: "ERROR", reason: `Invalid value: ${mapped.value}`, createdLeadId: null });
+              continue;
+            }
+          }
+        }
+
+        let expectedCloseDate: Date | null = null;
+        if (safeTrim(mapped.expectedCloseDate)) {
+          expectedCloseDate = parseFlexibleDate(safeTrim(mapped.expectedCloseDate)!);
+          if (!expectedCloseDate) {
+            results.push({ rowNumber, status: "ERROR", reason: `Invalid date: ${mapped.expectedCloseDate}`, createdLeadId: null });
+            continue;
+          }
+        }
+
+        const deal = await this.prisma.deal.create({
+          data: {
+            title,
+            value,
+            dealStage: safeTrim(mapped.dealStage),
+            pipeline: safeTrim(mapped.pipeline),
+            expectedCloseDate,
+            leadId: lead.id
+          }
+        });
+
+        results.push({ rowNumber, status: "CREATED", reason: null, createdLeadId: deal.id });
+      } catch (error) {
+        results.push({
+          rowNumber,
+          status: "ERROR",
+          reason: `Unhandled: ${error instanceof Error ? error.message : "Unknown error"}`,
+          createdLeadId: null
+        });
+      }
+    }
+
+    return results;
+  }
+
   async updateDeal(id: number, payload: DealPayload, auth: AuthContext, authorizationHeader?: string) {
     if (auth.role !== "ROLE_ADMIN") {
       throw new HttpError(403, "Only admins can update deals");
@@ -1229,4 +1420,166 @@ export class LeadService {
     }
     return normalized;
   }
+}
+
+function parseCsvRows(input: string): string[][] {
+  const rows: string[][] = [];
+  let currentField = "";
+  let currentRow: string[] = [];
+  let inQuotes = false;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+    const nextChar = input[index + 1];
+
+    if (char === "\"") {
+      if (inQuotes && nextChar === "\"") {
+        currentField += "\"";
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      currentRow.push(currentField);
+      currentField = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        index += 1;
+      }
+      currentRow.push(currentField);
+      currentField = "";
+      if (currentRow.some((field) => field.length > 0)) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      continue;
+    }
+
+    currentField += char;
+  }
+
+  currentRow.push(currentField);
+  if (currentRow.some((field) => field.length > 0)) {
+    rows.push(currentRow);
+  }
+
+  return rows;
+}
+
+function buildHeaderMap(headerRow: string[]): Map<string, number> {
+  const headerMap = new Map<string, number>();
+
+  headerRow.forEach((header, index) => {
+    const normalized = normalizeHeaderKey(header);
+    if (normalized && !headerMap.has(normalized)) {
+      headerMap.set(normalized, index);
+    }
+  });
+
+  return headerMap;
+}
+
+function mapLeadImportRow(row: string[], headerMap: Map<string, number>) {
+  return {
+    name: getCsvValue(row, headerMap, ["name", "full name", "contact name"]),
+    email: getCsvValue(row, headerMap, ["email", "e-mail", "email address"]),
+    companyName: getCsvValue(row, headerMap, ["company", "company name", "organization"]),
+    officialWebsite: getCsvValue(row, headerMap, ["website", "official website", "site", "url"]),
+    mobileNumber: getCsvValue(row, headerMap, ["mobile", "mobile number", "phone", "phone number", "mobile_no", "mobile_no."]),
+    officePhone: getCsvValue(row, headerMap, ["officephone", "office phone", "office_phone", "phone_office", "landline"]),
+    city: getCsvValue(row, headerMap, ["city"]),
+    state: getCsvValue(row, headerMap, ["state", "region", "province"]),
+    postalCode: getCsvValue(row, headerMap, ["postalcode", "postal code", "zip", "zip code"]),
+    country: getCsvValue(row, headerMap, ["country"]),
+    companyAddress: getCsvValue(row, headerMap, ["address", "company address", "office address", "company_address"])
+  };
+}
+
+function mapDealImportRow(row: string[], headerMap: Map<string, number>) {
+  return {
+    title: getCsvValue(row, headerMap, ["title", "deal name", "name"]),
+    value: getCsvValue(row, headerMap, ["value", "deal value", "amount"]),
+    dealStage: getCsvValue(row, headerMap, ["dealstage", "stage"]),
+    leadName: getCsvValue(row, headerMap, ["leadname", "lead name", "lead", "lead_name"]),
+    expectedCloseDate: getCsvValue(row, headerMap, ["expectedclosedate", "expected close date", "close date", "expected_close_date"]),
+    pipeline: getCsvValue(row, headerMap, ["pipeline"])
+  };
+}
+
+function getCsvValue(row: string[], headerMap: Map<string, number>, keys: string[]): string | null {
+  for (const key of keys) {
+    const columnIndex = headerMap.get(normalizeHeaderKey(key));
+    if (columnIndex !== undefined) {
+      return safeTrim(row[columnIndex] ?? "");
+    }
+  }
+  return null;
+}
+
+function normalizeHeaderKey(header: string): string {
+  return header.trim().toLowerCase().replaceAll(/\s+/g, "");
+}
+
+function safeTrim(value: string | null | undefined): string | null {
+  return value == null ? null : value.trim();
+}
+
+function normalizeMobileDigits(mobile: string | null | undefined): string | null {
+  if (!mobile) {
+    return null;
+  }
+  const digits = mobile.replaceAll(/\D+/g, "");
+  return digits || null;
+}
+
+function parseFlexibleDate(input: string): Date | null {
+  const trimmed = input.trim();
+  const patterns = [
+    /^(\d{4})-(\d{2})-(\d{2})$/,
+    /^(\d{2})-(\d{2})-(\d{4})$/,
+    /^(\d{2})\/(\d{2})\/(\d{4})$/,
+    /^(\d{2})\/(\d{2})\/(\d{4})$/
+  ];
+
+  for (const [index, pattern] of patterns.entries()) {
+    const match = trimmed.match(pattern);
+    if (!match) {
+      continue;
+    }
+
+    let year: number;
+    let month: number;
+    let day: number;
+
+    if (index === 0) {
+      year = Number(match[1]);
+      month = Number(match[2]);
+      day = Number(match[3]);
+    } else if (index === 1 || index === 2) {
+      day = Number(match[1]);
+      month = Number(match[2]);
+      year = Number(match[3]);
+    } else {
+      month = Number(match[1]);
+      day = Number(match[2]);
+      year = Number(match[3]);
+    }
+
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    if (
+      parsed.getUTCFullYear() === year &&
+      parsed.getUTCMonth() === month - 1 &&
+      parsed.getUTCDate() === day
+    ) {
+      return parsed;
+    }
+  }
+
+  return null;
 }

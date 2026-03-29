@@ -19,13 +19,12 @@
 - deal employee assignments
 - deal followups + summary
 - deal documents
+- lead/deal CSV imports
 - global priorities CRUD
 - employee-service validation and meta enrichment
 
 ## Still Pending From Java Service
 
-- lead CSV import
-- deal CSV import
 - client-service conversion flow
 - notification side effects
 - bulk deal operations parity
@@ -33,5 +32,4 @@
 
 ## Recommended Next Order
 
-1. lead/deal CSV imports
-2. client conversion + notifications
+1. client conversion + notifications
