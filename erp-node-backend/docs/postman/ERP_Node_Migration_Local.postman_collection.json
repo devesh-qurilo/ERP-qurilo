@@ -1824,6 +1824,520 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Lead Service",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{leadBaseUrl}}/health", "host": ["{{leadBaseUrl}}"], "path": ["health"] }
+          }
+        },
+        {
+          "name": "Leads",
+          "item": [
+            {
+              "name": "Create Lead",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('leadId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Postman Lead\",\n  \"email\": \"postman.lead@example.com\",\n  \"mobileNumber\": \"+919876540001\",\n  \"companyName\": \"Postman Co\",\n  \"clientCategory\": \"Enterprise\",\n  \"leadSource\": \"Website\",\n  \"leadOwner\": \"{{employeeEmployeeId}}\",\n  \"autoConvertToClient\": true\n}"
+                },
+                "url": { "raw": "{{leadBaseUrl}}/leads", "host": ["{{leadBaseUrl}}"], "path": ["leads"] }
+              }
+            },
+            {
+              "name": "List Leads",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/leads", "host": ["{{leadBaseUrl}}"], "path": ["leads"] }
+              }
+            },
+            {
+              "name": "My Leads",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{employeeAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/leads/my-leads", "host": ["{{leadBaseUrl}}"], "path": ["leads", "my-leads"] }
+              }
+            },
+            {
+              "name": "Get Lead By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/leads/{{leadId}}", "host": ["{{leadBaseUrl}}"], "path": ["leads", "{{leadId}}"] }
+              }
+            },
+            {
+              "name": "Update Lead",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Postman Lead Updated\",\n  \"city\": \"Bangalore\",\n  \"state\": \"Karnataka\",\n  \"country\": \"India\",\n  \"companyAddress\": \"HSR Layout\"\n}"
+                },
+                "url": { "raw": "{{leadBaseUrl}}/leads/{{leadId}}", "host": ["{{leadBaseUrl}}"], "path": ["leads", "{{leadId}}"] }
+              }
+            },
+            {
+              "name": "Lead Deal Stats",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/leads/{{leadId}}/deal-stats", "host": ["{{leadBaseUrl}}"], "path": ["leads", "{{leadId}}", "deal-stats"] }
+              }
+            },
+            {
+              "name": "Lead Notes List",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/leads/{{leadId}}/notes", "host": ["{{leadBaseUrl}}"], "path": ["leads", "{{leadId}}", "notes"] }
+              }
+            },
+            {
+              "name": "Add Lead Note",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"note\": \"Initial discussion completed\"\n}" },
+                "url": { "raw": "{{leadBaseUrl}}/leads/{{leadId}}/notes", "host": ["{{leadBaseUrl}}"], "path": ["leads", "{{leadId}}", "notes"] }
+              }
+            },
+            {
+              "name": "Import Leads CSV",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [{ "key": "file", "type": "file", "src": "{{leadCsvPath}}" }]
+                },
+                "url": { "raw": "{{leadBaseUrl}}/leads/import/file", "host": ["{{leadBaseUrl}}"], "path": ["leads", "import", "file"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deals",
+          "item": [
+            {
+              "name": "Create Deal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('dealId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Postman Deal\",\n  \"leadId\": {{leadId}},\n  \"dealAgent\": \"{{employeeEmployeeId}}\",\n  \"dealWatchers\": [\"{{adminEmployeeId}}\"],\n  \"dealStage\": \"NEW\",\n  \"pipeline\": \"Sales\",\n  \"value\": 50000,\n  \"currency\": \"INR\"\n}"
+                },
+                "url": { "raw": "{{leadBaseUrl}}/deals", "host": ["{{leadBaseUrl}}"], "path": ["deals"] }
+              }
+            },
+            {
+              "name": "List Deals",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals", "host": ["{{leadBaseUrl}}"], "path": ["deals"] }
+              }
+            },
+            {
+              "name": "Get Deal By Id",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}"] }
+              }
+            },
+            {
+              "name": "Deals By Lead",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/lead/{{leadId}}", "host": ["{{leadBaseUrl}}"], "path": ["deals", "lead", "{{leadId}}"] }
+              }
+            },
+            {
+              "name": "Update Deal",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Postman Deal Updated\",\n  \"dealStage\": \"NEGOTIATION\",\n  \"value\": 75000,\n  \"pipeline\": \"Sales\"\n}"
+                },
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}"] }
+              }
+            },
+            {
+              "name": "Update Deal Stage",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": {
+                  "raw": "{{leadBaseUrl}}/deals/{{dealId}}/stage?stage=WIN",
+                  "host": ["{{leadBaseUrl}}"],
+                  "path": ["deals", "{{dealId}}", "stage"],
+                  "query": [{ "key": "stage", "value": "WIN" }]
+                }
+              }
+            },
+            {
+              "name": "Deal Stats",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/stats", "host": ["{{leadBaseUrl}}"], "path": ["deals", "stats"] }
+              }
+            },
+            {
+              "name": "Bulk Deal Ops",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tags\": [\"important\", \"vip\"],\n  \"employeeIds\": [\"{{employeeEmployeeId}}\"],\n  \"comments\": [{ \"commentText\": \"Bulk note from Postman\" }]\n}"
+                },
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/bulk", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "bulk"] }
+              }
+            },
+            {
+              "name": "Import Deals CSV",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [{ "key": "file", "type": "file", "src": "{{dealCsvPath}}" }]
+                },
+                "url": { "raw": "{{leadBaseUrl}}/deals/import/csv", "host": ["{{leadBaseUrl}}"], "path": ["deals", "import", "csv"] }
+              }
+            },
+            {
+              "name": "Delete Deal",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deal Tags Comments Assignments",
+          "item": [
+            {
+              "name": "Add Deal Tag",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"tagName\": \"important\"\n}" },
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/tags", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "tags"] }
+              }
+            },
+            {
+              "name": "List Deal Tags",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/tags", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "tags"] }
+              }
+            },
+            {
+              "name": "Add Deal Comment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"commentText\": \"Initial followup note\"\n}" },
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/comments", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "comments"] }
+              }
+            },
+            {
+              "name": "List Deal Comments",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/comments", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "comments"] }
+              }
+            },
+            {
+              "name": "Assign Deal Employees",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"employeeIds\": [\"{{employeeEmployeeId}}\", \"{{adminEmployeeId}}\"]\n}" },
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/employees", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "employees"] }
+              }
+            },
+            {
+              "name": "List Deal Employees",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/employees", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "employees"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Followups Documents Priorities",
+          "item": [
+            {
+              "name": "Create Followup",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('dealFollowupId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nextDate\": \"2026-04-05\",\n  \"startTime\": \"11:00\",\n  \"remarks\": \"Call client\",\n  \"sendReminder\": true,\n  \"remindBefore\": 1,\n  \"remindUnit\": \"DAYS\"\n}"
+                },
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/followups", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "followups"] }
+              }
+            },
+            {
+              "name": "List Followups",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/followups", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "followups"] }
+              }
+            },
+            {
+              "name": "Followup Summary",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/followups/summary", "host": ["{{leadBaseUrl}}"], "path": ["deals", "followups", "summary"] }
+              }
+            },
+            {
+              "name": "Upload Deal Document",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('dealDocumentId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "filename", "value": "proposal.pdf", "type": "text" },
+                    { "key": "file", "type": "file", "src": "{{sampleFilePath}}" }
+                  ]
+                },
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/documents", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "documents"] }
+              }
+            },
+            {
+              "name": "List Deal Documents",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/documents", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "documents"] }
+              }
+            },
+            {
+              "name": "Create Global Priority",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('globalPriorityId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"High\",\n  \"color\": \"#ff0000\"\n}" },
+                "url": { "raw": "{{leadBaseUrl}}/deals/admin/priorities", "host": ["{{leadBaseUrl}}"], "path": ["deals", "admin", "priorities"] }
+              }
+            },
+            {
+              "name": "Assign Priority To Deal",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"priorityId\": {{globalPriorityId}}\n}" },
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/priority/assign", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "priority", "assign"] }
+              }
+            },
+            {
+              "name": "Get Deal Priority",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/deals/{{dealId}}/priority", "host": ["{{leadBaseUrl}}"], "path": ["deals", "{{dealId}}", "priority"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stages Categories Sources",
+          "item": [
+            {
+              "name": "Create Stage",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const data = pm.response.json();",
+                      "if (data.id) pm.environment.set('stageId', String(data.id));"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Authorization", "value": "Bearer {{adminAccessToken}}" },
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Qualified\"\n}" },
+                "url": { "raw": "{{leadBaseUrl}}/stages", "host": ["{{leadBaseUrl}}"], "path": ["stages"] }
+              }
+            },
+            {
+              "name": "List Stages",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }],
+                "url": { "raw": "{{leadBaseUrl}}/stages", "host": ["{{leadBaseUrl}}"], "path": ["stages"] }
+              }
+            },
+            {
+              "name": "Create Deal Category",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Software\"\n}" },
+                "url": { "raw": "{{leadBaseUrl}}/deals/dealCategory", "host": ["{{leadBaseUrl}}"], "path": ["deals", "dealCategory"] }
+              }
+            },
+            {
+              "name": "List Deal Categories",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{leadBaseUrl}}/deals/dealCategory", "host": ["{{leadBaseUrl}}"], "path": ["deals", "dealCategory"] }
+              }
+            },
+            {
+              "name": "Create Lead Source",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Referral\"\n}" },
+                "url": { "raw": "{{leadBaseUrl}}/deals/dealCategory/LeadSource", "host": ["{{leadBaseUrl}}"], "path": ["deals", "dealCategory", "LeadSource"] }
+              }
+            },
+            {
+              "name": "List Lead Sources",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{leadBaseUrl}}/deals/dealCategory/LeadSource", "host": ["{{leadBaseUrl}}"], "path": ["deals", "dealCategory", "LeadSource"] }
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }
