@@ -58,6 +58,10 @@ export interface TagPayload {
   tagName: string;
 }
 
+export interface CommentPayload {
+  commentText: string;
+}
+
 export interface PriorityPayload {
   status: string;
   color?: string;
@@ -374,6 +378,69 @@ export class LeadService {
     }
 
     await this.prisma.dealTag.delete({ where: { id: tagId } });
+  }
+
+  async getDealComments(dealId: number, auth: AuthContext) {
+    await this.getDealById(dealId, auth);
+    return this.prisma.dealComment.findMany({
+      where: { dealId },
+      orderBy: { createdAt: "desc" }
+    });
+  }
+
+  async addDealComment(dealId: number, payload: CommentPayload, auth: AuthContext) {
+    await this.getDealById(dealId, auth);
+
+    if (!payload.commentText?.trim()) {
+      throw new HttpError(400, "commentText is required");
+    }
+
+    return this.prisma.dealComment.create({
+      data: {
+        dealId,
+        employeeId: auth.userId,
+        commentText: payload.commentText.trim()
+      }
+    });
+  }
+
+  async updateDealComment(dealId: number, commentId: number, payload: CommentPayload, auth: AuthContext) {
+    await this.getDealById(dealId, auth);
+
+    const comment = await this.prisma.dealComment.findUnique({ where: { id: commentId } });
+    if (!comment || comment.dealId !== dealId) {
+      throw new HttpError(404, "Comment not found on this deal");
+    }
+
+    if (auth.role !== "ROLE_ADMIN" && comment.employeeId !== auth.userId) {
+      throw new HttpError(403, "Only admin or comment owner can update comment");
+    }
+
+    if (!payload.commentText?.trim()) {
+      throw new HttpError(400, "commentText is required");
+    }
+
+    return this.prisma.dealComment.update({
+      where: { id: commentId },
+      data: {
+        commentText: payload.commentText.trim()
+      }
+    });
+  }
+
+  async deleteDealComment(dealId: number, commentId: number, auth: AuthContext) {
+    await this.getDealById(dealId, auth);
+
+    const comment = await this.prisma.dealComment.findUnique({ where: { id: commentId } });
+    if (!comment || comment.dealId !== dealId) {
+      throw new HttpError(404, "Comment not found on this deal");
+    }
+
+    if (auth.role !== "ROLE_ADMIN" && comment.employeeId !== auth.userId) {
+      throw new HttpError(403, "Only admin or comment owner can delete comment");
+    }
+
+    await this.prisma.dealComment.delete({ where: { id: commentId } });
   }
 
   async updateDeal(id: number, payload: DealPayload, auth: AuthContext, authorizationHeader?: string) {
@@ -799,10 +866,15 @@ export class LeadService {
       where: { dealId: deal.id },
       orderBy: { id: "desc" }
     });
+    const comments = await this.prisma.dealComment.findMany({
+      where: { dealId: deal.id },
+      orderBy: { createdAt: "desc" }
+    });
 
     return {
       ...deal,
       tags,
+      comments,
       dealAgentMeta: deal.dealAgent ? await this.employeeClient.getEmployeeMeta(deal.dealAgent) : null,
       dealWatchersMeta: await Promise.all(watcherIds.map((watcher) => this.employeeClient.getEmployeeMeta(watcher))),
       lead: deal.leadId ? await this.prisma.lead.findUnique({ where: { id: deal.leadId } }) : null

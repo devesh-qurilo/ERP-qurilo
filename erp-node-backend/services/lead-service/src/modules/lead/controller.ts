@@ -4,7 +4,7 @@ import { URL } from "node:url";
 import { getAuthContext } from "../../common/auth.js";
 import { readJsonBody, sendJson } from "../../common/http.js";
 import type { LeadConfig } from "../../config/env.js";
-import type { LeadPayload, DealPayload, NotePayload, TagPayload } from "../../services/lead.service.js";
+import type { LeadPayload, DealPayload, NotePayload, TagPayload, CommentPayload } from "../../services/lead.service.js";
 import type { LeadService } from "../../services/lead.service.js";
 
 export async function handleLeadRoutes(
@@ -179,6 +179,32 @@ export async function handleLeadRoutes(
   const dealTagByIdMatch = pathname.match(/^\/deals\/(\d+)\/tags\/(\d+)$/);
   if (dealTagByIdMatch && method === "DELETE") {
     await service.deleteDealTag(Number(dealTagByIdMatch[1]), Number(dealTagByIdMatch[2]), auth());
+    response.writeHead(204);
+    response.end();
+    return true;
+  }
+
+  const dealCommentsMatch = pathname.match(/^\/deals\/(\d+)\/comments$/);
+  if (dealCommentsMatch && method === "GET") {
+    sendJson(response, 200, await service.getDealComments(Number(dealCommentsMatch[1]), auth()));
+    return true;
+  }
+
+  if (dealCommentsMatch && method === "POST") {
+    const payload = await readJsonBody<CommentPayload>(request);
+    sendJson(response, 200, await service.addDealComment(Number(dealCommentsMatch[1]), payload, auth()));
+    return true;
+  }
+
+  const dealCommentByIdMatch = pathname.match(/^\/deals\/(\d+)\/comments\/(\d+)$/);
+  if (dealCommentByIdMatch && method === "PUT") {
+    const payload = await readJsonBody<CommentPayload>(request);
+    sendJson(response, 200, await service.updateDealComment(Number(dealCommentByIdMatch[1]), Number(dealCommentByIdMatch[2]), payload, auth()));
+    return true;
+  }
+
+  if (dealCommentByIdMatch && method === "DELETE") {
+    await service.deleteDealComment(Number(dealCommentByIdMatch[1]), Number(dealCommentByIdMatch[2]), auth());
     response.writeHead(204);
     response.end();
     return true;

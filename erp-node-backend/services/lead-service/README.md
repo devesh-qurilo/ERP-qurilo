@@ -13,12 +13,12 @@ Implemented in this first pass:
 - lead notes CRUD
 - deal notes CRUD
 - deal tags CRUD
+- deal comments CRUD
 - global priorities CRUD
 - employee-service validation/meta integration
 
 Still pending for later parity passes:
 
-- deal comments
 - deal followups and summary
 - deal assigned employees
 - deal documents
