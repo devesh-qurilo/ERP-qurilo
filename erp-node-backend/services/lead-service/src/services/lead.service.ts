@@ -66,6 +66,19 @@ export interface DealEmployeeAssignmentPayload {
   employeeIds: string[];
 }
 
+export interface FollowupPayload {
+  nextDate?: string;
+  startTime?: string;
+  remarks?: string;
+  sendReminder?: boolean;
+  remindBefore?: number;
+  remindUnit?: "DAYS" | "HOURS" | "MINUTES" | string;
+}
+
+export interface FollowupUpdatePayload extends FollowupPayload {
+  status?: "PENDING" | "CANCELLED" | "COMPLETED" | string;
+}
+
 export interface PriorityPayload {
   status: string;
   color?: string;
@@ -524,6 +537,135 @@ export class LeadService {
     });
   }
 
+  async listDealFollowups(dealId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can view followups");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, "Deal not found");
+    }
+
+    return this.prisma.dealFollowUp.findMany({
+      where: { dealId },
+      orderBy: [{ nextDate: "asc" }, { id: "asc" }]
+    });
+  }
+
+  async getDealFollowup(dealId: number, followupId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can view followups");
+    }
+
+    const followup = await this.prisma.dealFollowUp.findUnique({ where: { id: followupId } });
+    if (!followup || followup.dealId !== dealId) {
+      throw new HttpError(404, "Followup not found for this deal");
+    }
+
+    return followup;
+  }
+
+  async addDealFollowup(dealId: number, payload: FollowupPayload, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can add followups to deals");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, "Deal not found");
+    }
+
+    const remindUnit = payload.remindUnit ? this.normalizeRemindUnit(payload.remindUnit) : null;
+    const reminderScheduled = Boolean(payload.sendReminder && payload.remindBefore !== undefined && remindUnit);
+
+    return this.prisma.dealFollowUp.create({
+      data: {
+        dealId,
+        nextDate: payload.nextDate ? new Date(payload.nextDate) : null,
+        startTime: payload.startTime ?? null,
+        remarks: payload.remarks ?? null,
+        sendReminder: Boolean(payload.sendReminder),
+        remindBefore: payload.remindBefore ?? null,
+        remindUnit,
+        reminderScheduled,
+        status: "PENDING"
+      }
+    });
+  }
+
+  async updateDealFollowup(dealId: number, followupId: number, payload: FollowupUpdatePayload, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can update followups");
+    }
+
+    const followup = await this.prisma.dealFollowUp.findUnique({ where: { id: followupId } });
+    if (!followup || followup.dealId !== dealId) {
+      throw new HttpError(404, "Followup not found for this deal");
+    }
+
+    const remindUnit = payload.remindUnit !== undefined
+      ? (payload.remindUnit ? this.normalizeRemindUnit(payload.remindUnit) : null)
+      : followup.remindUnit;
+    const status = payload.status !== undefined ? this.normalizeFollowupStatus(payload.status) : followup.status;
+    const sendReminder = payload.sendReminder ?? followup.sendReminder;
+    const remindBefore = payload.remindBefore !== undefined ? payload.remindBefore : followup.remindBefore;
+    const reminderScheduled = Boolean(sendReminder && remindBefore !== null && remindBefore !== undefined && remindUnit);
+
+    return this.prisma.dealFollowUp.update({
+      where: { id: followupId },
+      data: {
+        nextDate: payload.nextDate === undefined ? followup.nextDate : payload.nextDate ? new Date(payload.nextDate) : null,
+        startTime: payload.startTime === undefined ? followup.startTime : payload.startTime ?? null,
+        remarks: payload.remarks === undefined ? followup.remarks : payload.remarks ?? null,
+        sendReminder,
+        remindBefore,
+        remindUnit,
+        reminderScheduled,
+        status
+      }
+    });
+  }
+
+  async deleteDealFollowup(dealId: number, followupId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can delete followups");
+    }
+
+    const followup = await this.prisma.dealFollowUp.findUnique({ where: { id: followupId } });
+    if (!followup || followup.dealId !== dealId) {
+      throw new HttpError(404, "Followup not found for this deal");
+    }
+
+    await this.prisma.dealFollowUp.delete({ where: { id: followupId } });
+  }
+
+  async getFollowupSummary(auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can view followup summary");
+    }
+
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    const [pendingCount, upcomingCount] = await Promise.all([
+      this.prisma.dealFollowUp.count({
+        where: {
+          status: { notIn: ["COMPLETED", "CANCELLED"] },
+          nextDate: { lte: startOfToday }
+        }
+      }),
+      this.prisma.dealFollowUp.count({
+        where: {
+          status: { notIn: ["COMPLETED", "CANCELLED"] },
+          nextDate: { gt: startOfToday }
+        }
+      })
+    ]);
+
+    return { pendingCount, upcomingCount };
+  }
+
   async updateDeal(id: number, payload: DealPayload, auth: AuthContext, authorizationHeader?: string) {
     if (auth.role !== "ROLE_ADMIN") {
       throw new HttpError(403, "Only admins can update deals");
@@ -955,6 +1097,10 @@ export class LeadService {
       where: { dealId: deal.id },
       orderBy: { id: "asc" }
     });
+    const followups = await this.prisma.dealFollowUp.findMany({
+      where: { dealId: deal.id },
+      orderBy: [{ nextDate: "asc" }, { id: "asc" }]
+    });
     const assignedEmployeesMeta = await Promise.all(
       assignedEmployeeRows.map(async (row) => {
         const meta = await this.employeeClient.getEmployeeMeta(row.employeeId);
@@ -966,10 +1112,27 @@ export class LeadService {
       ...deal,
       tags,
       comments,
+      followups,
       assignedEmployeesMeta,
       dealAgentMeta: deal.dealAgent ? await this.employeeClient.getEmployeeMeta(deal.dealAgent) : null,
       dealWatchersMeta: await Promise.all(watcherIds.map((watcher) => this.employeeClient.getEmployeeMeta(watcher))),
       lead: deal.leadId ? await this.prisma.lead.findUnique({ where: { id: deal.leadId } }) : null
     };
+  }
+
+  private normalizeRemindUnit(unit: string): "DAYS" | "HOURS" | "MINUTES" {
+    const normalized = unit.toUpperCase();
+    if (normalized !== "DAYS" && normalized !== "HOURS" && normalized !== "MINUTES") {
+      throw new HttpError(400, "remindUnit must be one of DAYS, HOURS, MINUTES");
+    }
+    return normalized;
+  }
+
+  private normalizeFollowupStatus(status: string): "PENDING" | "CANCELLED" | "COMPLETED" {
+    const normalized = status.toUpperCase();
+    if (normalized !== "PENDING" && normalized !== "CANCELLED" && normalized !== "COMPLETED") {
+      throw new HttpError(400, "status must be one of PENDING, CANCELLED, COMPLETED");
+    }
+    return normalized;
   }
 }

@@ -53,6 +53,7 @@ model Deal {
   tags              DealTag[]
   comments          DealComment[]
   assignedEmployees DealEmployee[]
+  followups         DealFollowUp[]
 }
 
 model Stage {
@@ -128,6 +129,22 @@ model DealEmployee {
   deal       Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@unique([dealId, employeeId])
+}
+
+model DealFollowUp {
+  id                Int      @id @default(autoincrement())
+  dealId            Int
+  nextDate          DateTime?
+  startTime         String?
+  remarks           String?
+  sendReminder      Boolean  @default(false)
+  reminderScheduled Boolean  @default(false)
+  remindBefore      Int?
+  remindUnit        String?
+  status            String   @default("PENDING")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deal              Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
 }
 
 model Priority {

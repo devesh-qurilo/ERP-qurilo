@@ -105,5 +105,10 @@ export async function handleAdminRoutes(
     return true;
   }
 
+  if (method === "GET" && pathname === "/deals/followups/summary") {
+    sendJson(response, 200, await service.getFollowupSummary(auth()));
+    return true;
+  }
+
   return false;
 }

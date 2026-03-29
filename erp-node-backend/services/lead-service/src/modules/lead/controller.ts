@@ -10,7 +10,9 @@ import type {
   NotePayload,
   TagPayload,
   CommentPayload,
-  DealEmployeeAssignmentPayload
+  DealEmployeeAssignmentPayload,
+  FollowupPayload,
+  FollowupUpdatePayload
 } from "../../services/lead.service.js";
 import type { LeadService } from "../../services/lead.service.js";
 
@@ -234,6 +236,37 @@ export async function handleLeadRoutes(
   const dealEmployeeByIdMatch = pathname.match(/^\/deals\/(\d+)\/employees\/([^/]+)$/);
   if (dealEmployeeByIdMatch && method === "DELETE") {
     await service.removeDealEmployee(Number(dealEmployeeByIdMatch[1]), decodeURIComponent(dealEmployeeByIdMatch[2]), auth());
+    response.writeHead(204);
+    response.end();
+    return true;
+  }
+
+  const dealFollowupsMatch = pathname.match(/^\/deals\/(\d+)\/followups$/);
+  if (dealFollowupsMatch && method === "GET") {
+    sendJson(response, 200, await service.listDealFollowups(Number(dealFollowupsMatch[1]), auth()));
+    return true;
+  }
+
+  if (dealFollowupsMatch && method === "POST") {
+    const payload = await readJsonBody<FollowupPayload>(request);
+    sendJson(response, 200, await service.addDealFollowup(Number(dealFollowupsMatch[1]), payload, auth()));
+    return true;
+  }
+
+  const dealFollowupByIdMatch = pathname.match(/^\/deals\/(\d+)\/followups\/(\d+)$/);
+  if (dealFollowupByIdMatch && method === "GET") {
+    sendJson(response, 200, await service.getDealFollowup(Number(dealFollowupByIdMatch[1]), Number(dealFollowupByIdMatch[2]), auth()));
+    return true;
+  }
+
+  if (dealFollowupByIdMatch && method === "PUT") {
+    const payload = await readJsonBody<FollowupUpdatePayload>(request);
+    sendJson(response, 200, await service.updateDealFollowup(Number(dealFollowupByIdMatch[1]), Number(dealFollowupByIdMatch[2]), payload, auth()));
+    return true;
+  }
+
+  if (dealFollowupByIdMatch && method === "DELETE") {
+    await service.deleteDealFollowup(Number(dealFollowupByIdMatch[1]), Number(dealFollowupByIdMatch[2]), auth());
     response.writeHead(204);
     response.end();
     return true;
