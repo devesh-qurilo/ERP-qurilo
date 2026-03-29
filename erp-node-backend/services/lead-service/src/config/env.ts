@@ -7,6 +7,10 @@ export interface LeadConfig {
   jwtSecret: string;
   internalApiKey: string;
   employeeServiceUrl: string;
+  cloudinaryCloudName: string | null;
+  cloudinaryApiKey: string | null;
+  cloudinaryApiSecret: string | null;
+  cloudinaryUploadFolder: string;
 }
 
 export function getLeadConfig(): LeadConfig {
@@ -18,6 +22,10 @@ export function getLeadConfig(): LeadConfig {
     databaseUrl: getString("LEAD_DATABASE_URL"),
     jwtSecret: getString("JWT_SECRET"),
     internalApiKey: getString("INTERNAL_API_KEY"),
-    employeeServiceUrl: getString("EMPLOYEE_SERVICE_URL", "http://localhost:8083").replace(/\/$/, "")
+    employeeServiceUrl: getString("EMPLOYEE_SERVICE_URL", "http://localhost:8083").replace(/\/$/, ""),
+    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME ?? null,
+    cloudinaryApiKey: process.env.CLOUDINARY_API_KEY ?? null,
+    cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET ?? null,
+    cloudinaryUploadFolder: process.env.CLOUDINARY_UPLOAD_FOLDER ?? "erp"
   };
 }

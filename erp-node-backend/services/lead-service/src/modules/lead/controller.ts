@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { URL } from "node:url";
 
 import { getAuthContext } from "../../common/auth.js";
-import { readJsonBody, sendJson } from "../../common/http.js";
+import { parseMultipartFormData, readJsonBody, sendJson } from "../../common/http.js";
 import type { LeadConfig } from "../../config/env.js";
 import type {
   LeadPayload,
@@ -12,7 +12,8 @@ import type {
   CommentPayload,
   DealEmployeeAssignmentPayload,
   FollowupPayload,
-  FollowupUpdatePayload
+  FollowupUpdatePayload,
+  DealDocumentUploadPayload
 } from "../../services/lead.service.js";
 import type { LeadService } from "../../services/lead.service.js";
 
@@ -272,5 +273,54 @@ export async function handleLeadRoutes(
     return true;
   }
 
+  const dealDocumentsMatch = pathname.match(/^\/deals\/(\d+)\/documents$/);
+  if (dealDocumentsMatch && method === "GET") {
+    sendJson(response, 200, await service.listDealDocuments(Number(dealDocumentsMatch[1]), auth()));
+    return true;
+  }
+
+  if (dealDocumentsMatch && method === "POST") {
+    const { body, file } = await readDealDocumentRequest(request);
+    sendJson(response, 200, await service.uploadDealDocument(Number(dealDocumentsMatch[1]), body, auth(), file));
+    return true;
+  }
+
+  const dealDocumentByIdMatch = pathname.match(/^\/deals\/(\d+)\/documents\/(\d+)$/);
+  if (dealDocumentByIdMatch && method === "GET") {
+    sendJson(response, 200, await service.getDealDocument(Number(dealDocumentByIdMatch[1]), Number(dealDocumentByIdMatch[2]), auth()));
+    return true;
+  }
+
+  if (dealDocumentByIdMatch && method === "DELETE") {
+    await service.deleteDealDocument(Number(dealDocumentByIdMatch[1]), Number(dealDocumentByIdMatch[2]), auth());
+    response.writeHead(204);
+    response.end();
+    return true;
+  }
+
   return false;
+}
+
+async function readDealDocumentRequest(request: IncomingMessage): Promise<{
+  body: DealDocumentUploadPayload;
+  file: { filename: string | null; contentType: string | null; data: Buffer } | null;
+}> {
+  const contentType = request.headers["content-type"] ?? "";
+
+  if (!contentType.includes("multipart/form-data")) {
+    return {
+      body: await readJsonBody<DealDocumentUploadPayload>(request),
+      file: null
+    };
+  }
+
+  const multipart = await parseMultipartFormData(request);
+
+  return {
+    body: {
+      filename: multipart.fields.filename?.[0] ?? undefined,
+      url: multipart.fields.url?.[0] ?? undefined
+    },
+    file: multipart.files.file?.[0] ?? multipart.files.document?.[0] ?? null
+  };
 }

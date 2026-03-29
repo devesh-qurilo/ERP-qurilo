@@ -11,12 +11,22 @@ import { handleAdminRoutes } from "./modules/admin/controller.js";
 import { getHealthResponse } from "./modules/health/controller.js";
 import { handleLeadRoutes } from "./modules/lead/controller.js";
 import { LeadService } from "./services/lead.service.js";
+import { MediaStorageService } from "./services/media-storage.service.js";
 
 const config = getLeadConfig();
 const logger = createLogger(config.serviceName);
 const prisma = getPrismaClient();
 
-const leadService = new LeadService(prisma, new EmployeeClient(config.employeeServiceUrl));
+const leadService = new LeadService(
+  prisma,
+  new EmployeeClient(config.employeeServiceUrl),
+  new MediaStorageService(
+    config.cloudinaryCloudName,
+    config.cloudinaryApiKey,
+    config.cloudinaryApiSecret,
+    config.cloudinaryUploadFolder
+  )
+);
 
 const server = createServer(async (request, response) => {
   try {

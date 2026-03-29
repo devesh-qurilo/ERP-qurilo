@@ -16,12 +16,12 @@ Implemented in this first pass:
 - deal comments CRUD
 - deal employee assignments
 - deal followups + summary
+- deal documents
 - global priorities CRUD
 - employee-service validation/meta integration
 
 Still pending for later parity passes:
 
-- deal documents
 - lead/deal CSV import
 - client-service conversion flows
 - notification side effects

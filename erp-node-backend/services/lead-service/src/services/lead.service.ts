@@ -4,6 +4,7 @@ import type { AuthContext } from "@erp/shared-auth";
 
 import { HttpError } from "../common/errors.js";
 import type { EmployeeClient } from "../lib/employee-client.js";
+import type { MediaStorageService } from "./media-storage.service.js";
 
 export interface LeadPayload {
   name: string;
@@ -79,6 +80,11 @@ export interface FollowupUpdatePayload extends FollowupPayload {
   status?: "PENDING" | "CANCELLED" | "COMPLETED" | string;
 }
 
+export interface DealDocumentUploadPayload {
+  filename?: string;
+  url?: string;
+}
+
 export interface PriorityPayload {
   status: string;
   color?: string;
@@ -87,7 +93,8 @@ export interface PriorityPayload {
 export class LeadService {
   constructor(
     private readonly prisma: PrismaClient,
-    private readonly employeeClient: EmployeeClient
+    private readonly employeeClient: EmployeeClient,
+    private readonly mediaStorageService: MediaStorageService
   ) {}
 
   async createLead(payload: LeadPayload, auth: AuthContext, authorizationHeader?: string) {
@@ -666,6 +673,88 @@ export class LeadService {
     return { pendingCount, upcomingCount };
   }
 
+  async listDealDocuments(dealId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can access deal documents");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, "Deal not found");
+    }
+
+    return this.prisma.dealDocument.findMany({
+      where: { dealId },
+      orderBy: { uploadedAt: "desc" }
+    });
+  }
+
+  async uploadDealDocument(
+    dealId: number,
+    payload: DealDocumentUploadPayload,
+    auth: AuthContext,
+    file?: { filename: string | null; contentType: string | null; data: Buffer } | null
+  ) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can access deal documents");
+    }
+
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId } });
+    if (!deal) {
+      throw new HttpError(404, "Deal not found");
+    }
+
+    const uploadedFile = await this.mediaStorageService.saveUploadedFile(file, `deal-documents/${dealId}`);
+    const filename = payload.filename?.trim() || file?.filename?.trim() || null;
+    const url = uploadedFile?.url ?? payload.url?.trim() ?? null;
+
+    if (!filename || !url) {
+      throw new HttpError(400, "filename and file/url are required");
+    }
+
+    return this.prisma.dealDocument.create({
+      data: {
+        dealId,
+        filename,
+        url,
+        objectKey: uploadedFile?.objectKey ?? null,
+        uploadedBy: auth.userId
+      }
+    });
+  }
+
+  async getDealDocument(dealId: number, documentId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can access deal documents");
+    }
+
+    const document = await this.prisma.dealDocument.findUnique({ where: { id: documentId } });
+    if (!document || document.dealId !== dealId) {
+      throw new HttpError(404, "Document not found for this deal");
+    }
+
+    return document;
+  }
+
+  async deleteDealDocument(dealId: number, documentId: number, auth: AuthContext) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can access deal documents");
+    }
+
+    const document = await this.prisma.dealDocument.findUnique({ where: { id: documentId } });
+    if (!document || document.dealId !== dealId) {
+      throw new HttpError(404, "Document not found for this deal");
+    }
+
+    try {
+      await this.mediaStorageService.deleteUploadedFile(document.objectKey);
+    } catch {
+      // Keep DB cleanup resilient even if remote delete fails.
+    }
+
+    await this.prisma.dealDocument.delete({ where: { id: documentId } });
+  }
+
   async updateDeal(id: number, payload: DealPayload, auth: AuthContext, authorizationHeader?: string) {
     if (auth.role !== "ROLE_ADMIN") {
       throw new HttpError(403, "Only admins can update deals");
@@ -1101,6 +1190,10 @@ export class LeadService {
       where: { dealId: deal.id },
       orderBy: [{ nextDate: "asc" }, { id: "asc" }]
     });
+    const documents = await this.prisma.dealDocument.findMany({
+      where: { dealId: deal.id },
+      orderBy: { uploadedAt: "desc" }
+    });
     const assignedEmployeesMeta = await Promise.all(
       assignedEmployeeRows.map(async (row) => {
         const meta = await this.employeeClient.getEmployeeMeta(row.employeeId);
@@ -1113,6 +1206,7 @@ export class LeadService {
       tags,
       comments,
       followups,
+      documents,
       assignedEmployeesMeta,
       dealAgentMeta: deal.dealAgent ? await this.employeeClient.getEmployeeMeta(deal.dealAgent) : null,
       dealWatchersMeta: await Promise.all(watcherIds.map((watcher) => this.employeeClient.getEmployeeMeta(watcher))),

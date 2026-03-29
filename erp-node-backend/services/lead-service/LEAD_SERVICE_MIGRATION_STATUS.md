@@ -18,6 +18,7 @@
 - deal comments CRUD
 - deal employee assignments
 - deal followups + summary
+- deal documents
 - global priorities CRUD
 - employee-service validation and meta enrichment
 
@@ -25,7 +26,6 @@
 
 - lead CSV import
 - deal CSV import
-- deal documents
 - client-service conversion flow
 - notification side effects
 - bulk deal operations parity
@@ -33,6 +33,5 @@
 
 ## Recommended Next Order
 
-1. deal documents
-2. lead/deal CSV imports
-3. client conversion + notifications
+1. lead/deal CSV imports
+2. client conversion + notifications
