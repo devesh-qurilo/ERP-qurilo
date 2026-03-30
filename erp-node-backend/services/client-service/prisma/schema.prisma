@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("CLIENT_DATABASE_URL")
+}
+
+model Client {
+  id                 Int                 @id @default(autoincrement())
+  clientId           String              @unique
+  name               String
+  email              String              @unique
+  mobile             String              @unique
+  country            String?
+  gender             String?
+  category           String?
+  subCategory        String?
+  profilePictureUrl  String?
+  language           String?
+  receiveEmail       Boolean             @default(true)
+  status             String              @default("ACTIVE")
+  skype              String?
+  linkedIn           String?
+  twitter            String?
+  facebook           String?
+  companyLogoUrl     String?
+  addedBy            String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  company            Company?
+  notes              ClientNote[]
+  documents          ClientDocument[]
+}
+
+model Company {
+  id              Int      @id @default(autoincrement())
+  clientId        Int      @unique
+  companyName     String?
+  website         String?
+  officePhone     String?
+  taxName         String?
+  gstVatNo        String?
+  address         String?
+  city            String?
+  state           String?
+  postalCode      String?
+  shippingAddress String?
+  companyLogoUrl  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ClientCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ClientSubCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ClientNote {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  title     String
+  detail    String
+  type      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ClientDocument {
+  id         Int      @id @default(autoincrement())
+  clientId    Int
+  filename    String
+  url         String
+  objectKey   String?
+  mimeType    String?
+  size        BigInt?
+  uploadedBy  String?
+  uploadedAt  DateTime @default(now())
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}

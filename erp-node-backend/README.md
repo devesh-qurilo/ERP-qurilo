@@ -10,12 +10,15 @@ This is the new Node.js and TypeScript workspace for the ERP backend migration.
 - use Cloudinary for file storage in phase 1
 - move service by service instead of rewriting everything at once
 
-## Current Scaffolding
+## Current Status
 
 - root workspace config
 - shared packages
-- `gateway-service` starter
-- `auth-service` starter
+- `gateway-service` routing starter
+- `auth-service` migrated base
+- `employee-service` practical parity complete
+- `client-service` first migration slice implemented
+- `lead-service` practical parity complete
 - Docker local development setup
 - local PostgreSQL container bootstrap
 
@@ -48,4 +51,5 @@ This starts:
 
 - local PostgreSQL on `localhost:5432`
 - auth-service on `localhost:8081`
+- client-service on `localhost:8084`
 - gateway-service on `localhost:8080`

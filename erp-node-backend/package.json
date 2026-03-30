@@ -10,7 +10,9 @@
     "build": "npm run build --workspaces",
     "dev:gateway": "npm run dev -w @erp/gateway-service",
     "dev:auth": "npm run dev -w @erp/auth-service",
+    "dev:client": "npm run dev -w @erp/client-service",
     "dev:lead": "npm run dev -w @erp/lead-service",
+    "dev:employee": "npm run dev -w @erp/employee-service",
     "lint": "npm run lint --workspaces",
     "test": "npm run test --workspaces"
   },
