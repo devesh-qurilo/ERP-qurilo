@@ -77,6 +77,16 @@ export async function handleLeadRoutes(
     return true;
   }
 
+  const leadConvertMatch = pathname.match(/^\/leads\/(\d+)\/convert$/);
+  if (method === "POST" && leadConvertMatch) {
+    sendJson(
+      response,
+      200,
+      await service.convertLeadToClient(Number(leadConvertMatch[1]), auth(), request.headers.authorization)
+    );
+    return true;
+  }
+
   const leadNotesMatch = pathname.match(/^\/leads\/(\d+)\/notes$/);
   if (leadNotesMatch && method === "POST") {
     const payload = await readJsonBody<NotePayload>(request);

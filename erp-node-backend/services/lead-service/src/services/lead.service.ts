@@ -25,6 +25,7 @@ export interface LeadPayload {
   postalCode?: string;
   country?: string;
   companyAddress?: string;
+  deal?: DealPayload;
 }
 
 export interface DealPayload {
@@ -48,7 +49,8 @@ export interface StagePayload {
 }
 
 export interface CategoryPayload {
-  name: string;
+  name?: string;
+  categoryName?: string;
   color?: string;
 }
 
@@ -176,6 +178,18 @@ export class LeadService {
       }
     });
 
+    if (payload.createDeal && payload.deal) {
+      await this.createDeal(
+        {
+          ...payload.deal,
+          leadId: lead.id,
+          dealContact: lead.name
+        },
+        auth,
+        authorizationHeader
+      );
+    }
+
     await this.sendLeadCreatedNotification(lead, auth);
 
     return this.enrichLead(lead);
@@ -288,6 +302,43 @@ export class LeadService {
     await this.prisma.lead.delete({ where: { id } });
   }
 
+  async convertLeadToClient(id: number, auth: AuthContext, authorizationHeader?: string) {
+    if (auth.role !== "ROLE_ADMIN") {
+      throw new HttpError(403, "Only admins can convert leads to clients");
+    }
+
+    const lead = await this.prisma.lead.findUnique({ where: { id } });
+
+    if (!lead) {
+      throw new HttpError(404, "Lead not found");
+    }
+
+    if (lead.status?.toUpperCase() === "CONVERTED") {
+      return this.enrichLead(lead);
+    }
+
+    if (lead.email) {
+      const existingClients = await this.clientServiceClient.getClientsByEmail(lead.email, authorizationHeader);
+
+      if (existingClients.length > 0) {
+        const convertedLead = await this.prisma.lead.update({
+          where: { id: lead.id },
+          data: { status: "CONVERTED" }
+        });
+        await this.sendLeadConvertedNotification(convertedLead);
+        return this.enrichLead(convertedLead);
+      }
+    }
+
+    await this.clientServiceClient.createClientFromLead(lead, authorizationHeader);
+    const convertedLead = await this.prisma.lead.update({
+      where: { id: lead.id },
+      data: { status: "CONVERTED" }
+    });
+    await this.sendLeadConvertedNotification(convertedLead);
+    return this.enrichLead(convertedLead);
+  }
+
   async getLeadDealStats(id: number, auth: AuthContext) {
     const lead = await this.prisma.lead.findUnique({ where: { id } });
 
@@ -304,9 +355,9 @@ export class LeadService {
       leadId: id,
       dealCount: deals.length,
       totalDealValue: totalValue,
-      openDeals: deals.filter((deal) => deal.dealStage !== "WIN" && deal.dealStage !== "LOSE").length,
-      wonDeals: deals.filter((deal) => deal.dealStage === "WIN").length,
-      lostDeals: deals.filter((deal) => deal.dealStage === "LOSE").length
+      openDeals: deals.filter((deal) => !this.isWonStage(deal.dealStage) && !this.isLostStage(deal.dealStage)).length,
+      wonDeals: deals.filter((deal) => this.isWonStage(deal.dealStage)).length,
+      lostDeals: deals.filter((deal) => this.isLostStage(deal.dealStage)).length
     };
   }
 
@@ -1142,9 +1193,9 @@ export class LeadService {
     return {
       totalDeals: deals.length,
       totalValue: deals.reduce((sum, deal) => sum + (deal.value ?? 0), 0),
-      wonDeals: deals.filter((deal) => deal.dealStage === "WIN").length,
-      lostDeals: deals.filter((deal) => deal.dealStage === "LOSE").length,
-      openDeals: deals.filter((deal) => deal.dealStage !== "WIN" && deal.dealStage !== "LOSE").length
+      wonDeals: deals.filter((deal) => this.isWonStage(deal.dealStage)).length,
+      lostDeals: deals.filter((deal) => this.isLostStage(deal.dealStage)).length,
+      openDeals: deals.filter((deal) => !this.isWonStage(deal.dealStage) && !this.isLostStage(deal.dealStage)).length
     };
   }
 
@@ -1250,9 +1301,14 @@ export class LeadService {
   }
 
   async createDealCategory(payload: CategoryPayload) {
+    const name = payload.name?.trim() || payload.categoryName?.trim();
+    if (!name) {
+      throw new HttpError(400, "Category name is required");
+    }
+
     return this.prisma.dealCategory.create({
       data: {
-        name: payload.name.trim(),
+        name,
         color: payload.color ?? null
       }
     });
@@ -1268,9 +1324,14 @@ export class LeadService {
   }
 
   async createLeadSource(payload: CategoryPayload) {
+    const name = payload.name?.trim() || payload.categoryName?.trim();
+    if (!name) {
+      throw new HttpError(400, "Lead source name is required");
+    }
+
     return this.prisma.leadSource.create({
       data: {
-        name: payload.name.trim(),
+        name,
         color: payload.color ?? null
       }
     });
@@ -1699,11 +1760,21 @@ export class LeadService {
     return normalized;
   }
 
+  private isWonStage(stage?: string | null): boolean {
+    const normalized = stage?.trim().toUpperCase();
+    return normalized === "WIN" || normalized === "WON";
+  }
+
+  private isLostStage(stage?: string | null): boolean {
+    const normalized = stage?.trim().toUpperCase();
+    return normalized === "LOST" || normalized === "LOSE";
+  }
+
   private async autoConvertLeadIfEligible(
     deal: { leadId: number | null; dealStage: string | null },
     authorizationHeader?: string
   ): Promise<void> {
-    if (!deal.leadId || deal.dealStage?.toUpperCase() !== "WIN") {
+    if (!deal.leadId || !this.isWonStage(deal.dealStage)) {
       return;
     }
 
