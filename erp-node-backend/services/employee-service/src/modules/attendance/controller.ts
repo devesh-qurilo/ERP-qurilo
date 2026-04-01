@@ -344,23 +344,38 @@ async function readLeaveRequest(request: IncomingMessage): Promise<{
 
   if (!contentType.includes("multipart/form-data")) {
     return {
-      body: await readJsonBody<LeaveApplyDto>(request),
+      body: normalizeLeaveApplyDto((await readJsonBody<Record<string, unknown>>(request)) ?? {}),
       files: []
     };
   }
 
   const multipart = await parseMultipartFormData(request);
+  const leaveDataJson = multipart.fields.leaveData?.[0];
+
+  if (leaveDataJson?.trim()) {
+    return {
+      body: normalizeLeaveApplyDto(JSON.parse(leaveDataJson) as Record<string, unknown>),
+      files: [
+        ...(multipart.files.documents ?? []),
+        ...(multipart.files.documentFiles ?? []),
+        ...(multipart.files.files ?? [])
+      ]
+    };
+  }
 
   return {
-    body: {
+    body: normalizeLeaveApplyDto({
       leaveType: multipart.fields.leaveType?.[0] as LeaveApplyDto["leaveType"],
       durationType: multipart.fields.durationType?.[0] as LeaveApplyDto["durationType"],
       startDate: multipart.fields.startDate?.[0] ?? null,
+      fromDate: multipart.fields.fromDate?.[0] ?? null,
       endDate: multipart.fields.endDate?.[0] ?? null,
+      toDate: multipart.fields.toDate?.[0] ?? null,
       singleDate: multipart.fields.singleDate?.[0] ?? null,
+      date: multipart.fields.date?.[0] ?? null,
       reason: multipart.fields.reason?.[0] ?? null,
       documentUrls: multipart.fields.documentUrls?.flatMap(splitCsvValues) ?? null
-    },
+    }),
     files: [
       ...(multipart.files.documents ?? []),
       ...(multipart.files.documentFiles ?? []),
@@ -377,25 +392,40 @@ async function readAdminLeaveRequest(request: IncomingMessage): Promise<{
 
   if (!contentType.includes("multipart/form-data")) {
     return {
-      body: await readJsonBody<AdminLeaveApplyDto>(request),
+      body: normalizeAdminLeaveApplyDto((await readJsonBody<Record<string, unknown>>(request)) ?? {}),
       files: []
     };
   }
 
   const multipart = await parseMultipartFormData(request);
+  const leaveDataJson = multipart.fields.leaveData?.[0];
+
+  if (leaveDataJson?.trim()) {
+    return {
+      body: normalizeAdminLeaveApplyDto(JSON.parse(leaveDataJson) as Record<string, unknown>),
+      files: [
+        ...(multipart.files.documents ?? []),
+        ...(multipart.files.documentFiles ?? []),
+        ...(multipart.files.files ?? [])
+      ]
+    };
+  }
 
   return {
-    body: {
+    body: normalizeAdminLeaveApplyDto({
       leaveType: multipart.fields.leaveType?.[0] as AdminLeaveApplyDto["leaveType"],
       durationType: multipart.fields.durationType?.[0] as AdminLeaveApplyDto["durationType"],
       startDate: multipart.fields.startDate?.[0] ?? null,
+      fromDate: multipart.fields.fromDate?.[0] ?? null,
       endDate: multipart.fields.endDate?.[0] ?? null,
+      toDate: multipart.fields.toDate?.[0] ?? null,
       singleDate: multipart.fields.singleDate?.[0] ?? null,
+      date: multipart.fields.date?.[0] ?? null,
       reason: multipart.fields.reason?.[0] ?? null,
       status: multipart.fields.status?.[0] as AdminLeaveApplyDto["status"],
       employeeIds: multipart.fields.employeeIds?.flatMap(splitCsvValues) ?? [],
       documentUrls: multipart.fields.documentUrls?.flatMap(splitCsvValues) ?? null
-    },
+    }),
     files: [
       ...(multipart.files.documents ?? []),
       ...(multipart.files.documentFiles ?? []),
@@ -409,4 +439,45 @@ function splitCsvValues(value: string): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function normalizeLeaveApplyDto(input: Record<string, unknown>): LeaveApplyDto {
+  const startDate = readStringValue(input.startDate) ?? readStringValue(input.fromDate);
+  const endDate = readStringValue(input.endDate) ?? readStringValue(input.toDate);
+  const singleDate = readStringValue(input.singleDate) ?? readStringValue(input.date);
+  const documentUrls = normalizeStringArray(input.documentUrls);
+
+  return {
+    leaveType: readStringValue(input.leaveType) as LeaveApplyDto["leaveType"],
+    durationType: readStringValue(input.durationType) as LeaveApplyDto["durationType"],
+    startDate,
+    endDate,
+    singleDate,
+    reason: readStringValue(input.reason),
+    documentUrls
+  };
+}
+
+function normalizeAdminLeaveApplyDto(input: Record<string, unknown>): AdminLeaveApplyDto {
+  return {
+    ...normalizeLeaveApplyDto(input),
+    status: readStringValue(input.status) as AdminLeaveApplyDto["status"],
+    employeeIds: normalizeStringArray(input.employeeIds) ?? []
+  };
+}
+
+function readStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function normalizeStringArray(value: unknown): string[] | null {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return splitCsvValues(value);
+  }
+
+  return null;
 }

@@ -1416,7 +1416,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{gatewayBaseUrl}}/employee/attendance/clock/activities",
+                  "raw": "{{gatewayBaseUrl}}/employee/attendance/clock/activities?date=2026-03-29",
                   "host": [
                     "{{employeeBaseUrl}}"
                   ],
@@ -1425,6 +1425,12 @@
                     "attendance",
                     "clock",
                     "activities"
+                  ],
+                  "query": [
+                    {
+                      "key": "date",
+                      "value": "2026-03-29"
+                    }
                   ]
                 }
               }
@@ -1445,7 +1451,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"employeeId\": \"{{employeeEmployeeId}}\",\n  \"date\": \"2026-03-29\",\n  \"status\": \"PRESENT\"\n}"
+                  "raw": "{\n  \"employeeIds\": [\"{{employeeEmployeeId}}\"],\n  \"dates\": [\"2026-03-29\"],\n  \"payload\": {\n    \"clockInTime\": \"09:30:00\",\n    \"clockOutTime\": \"18:30:00\",\n    \"clockInWorkingFrom\": \"OFFICE\",\n    \"clockOutWorkingFrom\": \"OFFICE\",\n    \"late\": false,\n    \"halfDay\": false\n  },\n  \"overwrite\": true\n}"
                 },
                 "url": {
                   "raw": "{{gatewayBaseUrl}}/employee/attendance/mark",
@@ -1476,7 +1482,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"date\": \"2026-03-30\",\n  \"status\": \"PRESENT\",\n  \"employeeIds\": [\"{{employeeEmployeeId}}\", \"{{createdEmployeeId}}\"]\n}"
+                  "raw": "{\n  \"employeeIds\": [\"{{employeeEmployeeId}}\", \"{{createdEmployeeId}}\"],\n  \"dates\": [\"2026-03-30\"],\n  \"payload\": {\n    \"clockInTime\": \"09:30:00\",\n    \"clockOutTime\": \"18:30:00\",\n    \"clockInWorkingFrom\": \"OFFICE\",\n    \"clockOutWorkingFrom\": \"OFFICE\",\n    \"late\": false,\n    \"halfDay\": false\n  },\n  \"overwrite\": true\n}"
                 },
                 "url": {
                   "raw": "{{gatewayBaseUrl}}/employee/attendance/mark/by-employees",
@@ -1508,7 +1514,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"employeeId\": \"{{employeeEmployeeId}}\",\n  \"year\": 2026,\n  \"month\": 4,\n  \"status\": \"PRESENT\",\n  \"days\": [1, 2, 3]\n}"
+                  "raw": "{\n  \"employeeIds\": [\"{{employeeEmployeeId}}\"],\n  \"year\": 2026,\n  \"month\": 4,\n  \"payload\": {\n    \"clockInTime\": \"09:30:00\",\n    \"clockOutTime\": \"18:30:00\",\n    \"clockInWorkingFrom\": \"OFFICE\",\n    \"clockOutWorkingFrom\": \"OFFICE\",\n    \"late\": false,\n    \"halfDay\": false\n  },\n  \"overwrite\": true\n}"
                 },
                 "url": {
                   "raw": "{{gatewayBaseUrl}}/employee/attendance/mark/month",
@@ -1581,7 +1587,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{gatewayBaseUrl}}/employee/attendance/summary",
+                  "raw": "{{gatewayBaseUrl}}/employee/attendance/summary?employeeId={{employeeEmployeeId}}&from=2026-03-01&to=2026-03-31",
                   "host": [
                     "{{employeeBaseUrl}}"
                   ],
@@ -1589,6 +1595,20 @@
                     "employee",
                     "attendance",
                     "summary"
+                  ],
+                  "query": [
+                    {
+                      "key": "employeeId",
+                      "value": "{{employeeEmployeeId}}"
+                    },
+                    {
+                      "key": "from",
+                      "value": "2026-03-01"
+                    },
+                    {
+                      "key": "to",
+                      "value": "2026-03-31"
+                    }
                   ]
                 }
               }
@@ -1604,7 +1624,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{gatewayBaseUrl}}/employee/attendance/between?employeeId={{employeeEmployeeId}}&from=2026-03-01&to=2026-03-31",
+                  "raw": "{{gatewayBaseUrl}}/employee/attendance/between?employeeIds={{employeeEmployeeId}}&from=2026-03-01&to=2026-03-31",
                   "host": [
                     "{{employeeBaseUrl}}"
                   ],
@@ -1615,7 +1635,7 @@
                   ],
                   "query": [
                     {
-                      "key": "employeeId",
+                      "key": "employeeIds",
                       "value": "{{employeeEmployeeId}}"
                     },
                     {
@@ -1641,7 +1661,7 @@
                   }
                 ],
                 "url": {
-                  "raw": "{{gatewayBaseUrl}}/employee/attendance/calendar?employeeId={{employeeEmployeeId}}&year=2026&month=4",
+                  "raw": "{{gatewayBaseUrl}}/employee/attendance/calendar?employeeId={{employeeEmployeeId}}&from=2026-04-01&to=2026-04-30",
                   "host": [
                     "{{employeeBaseUrl}}"
                   ],
@@ -1656,12 +1676,12 @@
                       "value": "{{employeeEmployeeId}}"
                     },
                     {
-                      "key": "year",
-                      "value": "2026"
+                      "key": "from",
+                      "value": "2026-04-01"
                     },
                     {
-                      "key": "month",
-                      "value": "4"
+                      "key": "to",
+                      "value": "2026-04-30"
                     }
                   ]
                 }
@@ -1826,7 +1846,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"status\": \"HOME\"\n}"
+                  "raw": "{\n  \"clockInTime\": \"09:30:00\",\n  \"clockOutTime\": \"18:30:00\",\n  \"clockInWorkingFrom\": \"HOME\",\n  \"clockOutWorkingFrom\": \"HOME\",\n  \"late\": false,\n  \"halfDay\": false\n}"
                 },
                 "url": {
                   "raw": "{{gatewayBaseUrl}}/employee/attendance/edit?employeeId={{employeeEmployeeId}}&date=2026-04-03",
@@ -1949,15 +1969,22 @@
                   {
                     "key": "Authorization",
                     "value": "Bearer {{employeeAccessToken}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
                   }
                 ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"leaveType\": \"CASUAL\",\n  \"fromDate\": \"2026-04-10\",\n  \"toDate\": \"2026-04-11\",\n  \"reason\": \"Personal work\"\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "leaveData",
+                      "value": "{\n  \"leaveType\": \"CASUAL\",\n  \"durationType\": \"MULTIPLE\",\n  \"startDate\": \"2026-04-10\",\n  \"endDate\": \"2026-04-11\",\n  \"reason\": \"Personal work\"\n}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "documents",
+                      "type": "file",
+                      "src": "{{sampleFilePath}}"
+                    }
+                  ]
                 },
                 "url": {
                   "raw": "{{gatewayBaseUrl}}/employee/api/leaves/apply",
@@ -1981,15 +2008,22 @@
                   {
                     "key": "Authorization",
                     "value": "Bearer {{adminAccessToken}}"
-                  },
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
                   }
                 ],
                 "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"employeeIds\": [\"{{employeeEmployeeId}}\", \"{{createdEmployeeId}}\"],\n  \"leaveType\": \"SICK\",\n  \"fromDate\": \"2026-04-15\",\n  \"toDate\": \"2026-04-15\",\n  \"reason\": \"Medical leave\",\n  \"status\": \"APPROVED\"\n}"
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "leaveData",
+                      "value": "{\n  \"employeeIds\": [\"{{employeeEmployeeId}}\", \"{{createdEmployeeId}}\"],\n  \"leaveType\": \"SICK\",\n  \"durationType\": \"MULTIPLE\",\n  \"startDate\": \"2026-04-15\",\n  \"endDate\": \"2026-04-15\",\n  \"reason\": \"Medical leave\",\n  \"status\": \"APPROVED\"\n}",
+                      "type": "text"
+                    },
+                    {
+                      "key": "documents",
+                      "type": "file",
+                      "src": "{{sampleFilePath}}"
+                    }
+                  ]
                 },
                 "url": {
                   "raw": "{{gatewayBaseUrl}}/employee/api/leaves/admin/apply",

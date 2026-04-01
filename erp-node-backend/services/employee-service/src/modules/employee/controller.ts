@@ -127,9 +127,13 @@ async function readEmployeeRequest(request: IncomingMessage): Promise<{
   }
 
   const multipart = await parseMultipartFormData(request);
+  const multipartBody = parseMultipartJsonField<EmployeeRequestDto>(
+    getMultipartTextValue(multipart, "employee"),
+    "employee"
+  );
 
   return {
-    body: {
+    body: multipartBody ?? {
       employeeId: multipart.fields.employeeId?.[0],
       name: multipart.fields.name?.[0],
       email: multipart.fields.email?.[0],
@@ -180,9 +184,13 @@ async function readEmployeeProfileRequest(request: IncomingMessage): Promise<{
   }
 
   const multipart = await parseMultipartFormData(request);
+  const multipartBody = parseMultipartJsonField<EmployeeProfileUpdateDto>(
+    getMultipartTextValue(multipart, "employee"),
+    "employee"
+  );
 
   return {
-    body: {
+    body: multipartBody ?? {
       name: multipart.fields.name?.[0],
       email: multipart.fields.email?.[0],
       profilePictureUrl: multipart.fields.profilePictureUrl?.[0] ?? null,
@@ -200,6 +208,40 @@ async function readEmployeeProfileRequest(request: IncomingMessage): Promise<{
     profilePictureFile:
       multipart.files.profilePicture?.[0] ?? multipart.files.profilePictureFile?.[0] ?? multipart.files.file?.[0] ?? null
   };
+}
+
+function parseMultipartJsonField<T>(value: string | undefined, fieldName: string): T | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch (error) {
+    throw new HttpError(400, `Invalid '${fieldName}' JSON part`, {
+      message: `Invalid '${fieldName}' JSON part`,
+      details: error instanceof Error ? error.message : "Malformed JSON"
+    });
+  }
+}
+
+function getMultipartTextValue(
+  multipart: Awaited<ReturnType<typeof parseMultipartFormData>>,
+  fieldName: string
+): string | undefined {
+  const directFieldValue = multipart.fields[fieldName]?.[0];
+
+  if (directFieldValue !== undefined) {
+    return directFieldValue;
+  }
+
+  const fileBackedField = multipart.files[fieldName]?.[0];
+
+  if (!fileBackedField) {
+    return undefined;
+  }
+
+  return fileBackedField.data.toString("utf8");
 }
 
 function parseOptionalNumber(value: string | undefined): number | null | undefined {

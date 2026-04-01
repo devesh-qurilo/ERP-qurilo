@@ -30,10 +30,10 @@ export class CloudinaryStorageAdapter implements StorageService {
 
   async upload(input: UploadInput): Promise<UploadResult> {
     const timestamp = Math.floor(Date.now() / 1000);
+    const resourceType = resolveResourceType(input.mimeType);
     const publicId = `${normalizePath(input.folder)}/${stripExtension(input.fileName)}`;
     const signature = signParams(
       {
-        folder: normalizePath(input.folder),
         public_id: publicId,
         timestamp
       },
@@ -44,11 +44,10 @@ export class CloudinaryStorageAdapter implements StorageService {
     form.append("file", new Blob([new Uint8Array(input.buffer)], { type: input.mimeType }), input.fileName);
     form.append("api_key", this.config.apiKey);
     form.append("timestamp", String(timestamp));
-    form.append("folder", normalizePath(input.folder));
     form.append("public_id", publicId);
     form.append("signature", signature);
 
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${this.config.cloudName}/auto/upload`, {
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${this.config.cloudName}/${resourceType}/upload`, {
       method: "POST",
       body: form
     });
@@ -138,4 +137,16 @@ function stripExtension(fileName: string): string {
   const normalized = fileName.trim().replace(/\s+/g, "-");
   const lastDot = normalized.lastIndexOf(".");
   return lastDot > 0 ? normalized.slice(0, lastDot) : normalized;
+}
+
+function resolveResourceType(mimeType: string): "image" | "video" | "raw" {
+  if (mimeType.startsWith("image/")) {
+    return "image";
+  }
+
+  if (mimeType.startsWith("video/")) {
+    return "video";
+  }
+
+  return "raw";
 }

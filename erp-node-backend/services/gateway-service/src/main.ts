@@ -44,9 +44,14 @@ const server = createServer(async (req, res) => {
   try {
     const upstreamUrl = resolveUpstreamUrl(requestUrl, route.target);
     const requestHeaders = new Headers();
+    const skippedRequestHeaders = new Set(["host", "connection", "content-length", "transfer-encoding"]);
 
     for (const [key, value] of Object.entries(req.headers)) {
       if (value === undefined) {
+        continue;
+      }
+
+      if (skippedRequestHeaders.has(key.toLowerCase())) {
         continue;
       }
 
@@ -63,7 +68,9 @@ const server = createServer(async (req, res) => {
     requestHeaders.set("x-request-id", context.requestId);
     requestHeaders.set("x-forwarded-by", config.serviceName);
 
-    const requestBody = shouldSendBody(req.method) ? new Uint8Array(await readRawBody(req)) : undefined;
+    const rawRequestBody = shouldSendBody(req.method) ? await readRawBody(req) : null;
+    const requestBody =
+      rawRequestBody && rawRequestBody.length > 0 ? new Uint8Array(rawRequestBody) : undefined;
 
     const upstreamResponse = await fetch(upstreamUrl, {
       method: req.method,
