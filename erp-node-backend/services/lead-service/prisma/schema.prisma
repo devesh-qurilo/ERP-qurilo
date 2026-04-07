@@ -12,6 +12,7 @@ model Lead {
   name                String
   email               String?    @unique
   clientCategory      String?
+  clientSubCategory   String?
   leadSource          String?
   leadOwner           String
   addedBy             String

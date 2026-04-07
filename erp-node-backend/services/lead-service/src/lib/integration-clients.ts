@@ -3,9 +3,17 @@ import { HttpError } from "../common/errors.js";
 export class ClientServiceClient {
   constructor(private readonly clientServiceUrl: string) {}
 
+  private authHeaders(authorizationHeader?: string) {
+    const headers: Record<string, string> = {};
+    if (authorizationHeader) {
+      headers.authorization = authorizationHeader;
+    }
+    return headers;
+  }
+
   async getClientsByEmail(email: string, authorizationHeader?: string): Promise<unknown[]> {
     const response = await fetch(`${this.clientServiceUrl}/clients/email/${encodeURIComponent(email)}`, {
-      headers: authorizationHeader ? { authorization: authorizationHeader } : {}
+      headers: this.authHeaders(authorizationHeader)
     });
 
     if (response.status === 404) {
@@ -20,12 +28,65 @@ export class ClientServiceClient {
     return Array.isArray(payload) ? payload : [];
   }
 
+  async ensureCategoryMetadata(category: string | null, subCategory: string | null, authorizationHeader?: string): Promise<void> {
+    if (category?.trim()) {
+      const categoriesResponse = await fetch(`${this.clientServiceUrl}/clients/category`, {
+        headers: this.authHeaders(authorizationHeader)
+      });
+
+      if (categoriesResponse.ok) {
+        const categories = (await categoriesResponse.json()) as Array<{ name?: string; categoryName?: string }>;
+        const exists = categories.some((item) => {
+          const value = item.categoryName ?? item.name ?? "";
+          return value.trim().toLowerCase() === category.trim().toLowerCase();
+        });
+
+        if (!exists) {
+          await fetch(`${this.clientServiceUrl}/clients/category`, {
+            method: "POST",
+            headers: {
+              ...this.authHeaders(authorizationHeader),
+              "content-type": "application/json"
+            },
+            body: JSON.stringify({ categoryName: category.trim() })
+          });
+        }
+      }
+    }
+
+    if (subCategory?.trim()) {
+      const subCategoriesResponse = await fetch(`${this.clientServiceUrl}/clients/category/subcategory`, {
+        headers: this.authHeaders(authorizationHeader)
+      });
+
+      if (subCategoriesResponse.ok) {
+        const subCategories = (await subCategoriesResponse.json()) as Array<{ name?: string; subCategoryName?: string }>;
+        const exists = subCategories.some((item) => {
+          const value = item.subCategoryName ?? item.name ?? "";
+          return value.trim().toLowerCase() === subCategory.trim().toLowerCase();
+        });
+
+        if (!exists) {
+          await fetch(`${this.clientServiceUrl}/clients/category/subcategory`, {
+            method: "POST",
+            headers: {
+              ...this.authHeaders(authorizationHeader),
+              "content-type": "application/json"
+            },
+            body: JSON.stringify({ subCategoryName: subCategory.trim() })
+          });
+        }
+      }
+    }
+  }
+
   async createClientFromLead(lead: {
     name: string;
     email: string | null;
     mobileNumber: string | null;
     country: string | null;
     clientCategory: string | null;
+    clientSubCategory: string | null;
     companyName: string | null;
     officialWebsite: string | null;
   }, authorizationHeader?: string): Promise<unknown> {
@@ -35,6 +96,7 @@ export class ClientServiceClient {
       mobile: lead.mobileNumber,
       country: lead.country,
       category: lead.clientCategory,
+      subCategory: lead.clientSubCategory,
       companyName: lead.companyName,
       website: lead.officialWebsite
     };
@@ -44,7 +106,7 @@ export class ClientServiceClient {
 
     const response = await fetch(`${this.clientServiceUrl}/clients`, {
       method: "POST",
-      headers: authorizationHeader ? { authorization: authorizationHeader } : {},
+      headers: this.authHeaders(authorizationHeader),
       body: form
     });
 

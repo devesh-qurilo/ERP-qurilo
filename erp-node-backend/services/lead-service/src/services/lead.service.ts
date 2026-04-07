@@ -11,6 +11,7 @@ export interface LeadPayload {
   name: string;
   email?: string;
   clientCategory?: string;
+  clientSubCategory?: string;
   leadSource?: string;
   leadOwner?: string;
   addedBy?: string;
@@ -55,7 +56,10 @@ export interface CategoryPayload {
 }
 
 export interface NotePayload {
-  note: string;
+  note?: string;
+  noteTitle?: string;
+  noteType?: string;
+  noteDetails?: string | null;
 }
 
 export interface TagPayload {
@@ -125,6 +129,81 @@ export class LeadService {
     private readonly notificationClient: NotificationClient
   ) {}
 
+  private normalizeNotePayload(payload: NotePayload) {
+    const noteTitle = payload.noteTitle?.trim() || "";
+    const noteType = payload.noteType?.trim().toUpperCase() || "PUBLIC";
+    const noteDetails = payload.noteDetails?.trim() || "";
+    const fallbackNote = payload.note?.trim() || "";
+
+    if (!noteTitle && !noteDetails && !fallbackNote) {
+      throw new HttpError(400, "noteTitle or noteDetails is required");
+    }
+
+    return {
+      noteTitle: noteTitle || fallbackNote,
+      noteType,
+      noteDetails: noteDetails || (!noteTitle ? fallbackNote : "")
+    };
+  }
+
+  private serializeNotePayload(payload: { noteTitle: string; noteType: string; noteDetails: string }) {
+    return JSON.stringify(payload);
+  }
+
+  private deserializeStoredNote(note: string) {
+    try {
+      const parsed = JSON.parse(note) as {
+        noteTitle?: string;
+        noteType?: string;
+        noteDetails?: string | null;
+      };
+
+      if (parsed && (parsed.noteTitle || parsed.noteDetails || parsed.noteType)) {
+        return {
+          noteTitle: parsed.noteTitle?.trim() || parsed.noteDetails?.trim() || "",
+          noteType: parsed.noteType?.trim().toUpperCase() || "PUBLIC",
+          noteDetails: parsed.noteDetails?.trim() || ""
+        };
+      }
+    } catch {
+      // Fall back to legacy plain-text note storage.
+    }
+
+    return {
+      noteTitle: note,
+      noteType: "PUBLIC",
+      noteDetails: note
+    };
+  }
+
+  private mapLeadNoteResponse(note: { id: number; note: string; employeeId: string; createdAt: Date; updatedAt: Date }) {
+    const parsed = this.deserializeStoredNote(note.note);
+    return {
+      id: note.id,
+      noteTitle: parsed.noteTitle,
+      noteType: parsed.noteType,
+      noteDetails: parsed.noteDetails,
+      createdBy: note.employeeId,
+      employeeId: note.employeeId,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt
+    };
+  }
+
+  private mapDealNoteResponse(note: { id: number; note: string; employeeId: string; createdAt: Date; updatedAt: Date }) {
+    const parsed = this.deserializeStoredNote(note.note);
+    return {
+      id: note.id,
+      noteTitle: parsed.noteTitle,
+      noteType: parsed.noteType,
+      noteDetails: parsed.noteDetails,
+      createdBy: note.employeeId,
+      employeeId: note.employeeId,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt
+    };
+  }
+
   async createLead(payload: LeadPayload, auth: AuthContext, authorizationHeader?: string) {
     if (!payload.name?.trim()) {
       throw new HttpError(400, "Lead name is required");
@@ -141,6 +220,14 @@ export class LeadService {
 
     await this.employeeClient.ensureEmployeeExists(leadOwner, authorizationHeader);
     await this.employeeClient.ensureEmployeeExists(addedBy, authorizationHeader);
+
+    if (!payload.clientCategory?.trim()) {
+      throw new HttpError(400, "Client category is required");
+    }
+
+    if (!payload.clientSubCategory?.trim()) {
+      throw new HttpError(400, "Client sub category is required");
+    }
 
     if (payload.email) {
       const existingByEmail = await this.prisma.lead.findUnique({ where: { email: payload.email } });
@@ -160,7 +247,8 @@ export class LeadService {
       data: {
         name: payload.name.trim(),
         email: payload.email?.trim() || null,
-        clientCategory: payload.clientCategory ?? null,
+        clientCategory: payload.clientCategory.trim(),
+        clientSubCategory: payload.clientSubCategory.trim(),
         leadSource: payload.leadSource ?? null,
         leadOwner,
         addedBy,
@@ -177,6 +265,12 @@ export class LeadService {
         companyAddress: payload.companyAddress ?? null
       }
     });
+
+    try {
+      await this.clientServiceClient.ensureCategoryMetadata(lead.clientCategory, lead.clientSubCategory, authorizationHeader);
+    } catch {
+      // Keep lead creation stable even if client-service metadata sync is unavailable.
+    }
 
     if (payload.createDeal && payload.deal) {
       await this.createDeal(
@@ -262,12 +356,21 @@ export class LeadService {
       await this.employeeClient.ensureEmployeeExists(payload.addedBy, authorizationHeader);
     }
 
+    if (payload.clientCategory !== undefined && !payload.clientCategory.trim()) {
+      throw new HttpError(400, "Client category is required");
+    }
+
+    if (payload.clientSubCategory !== undefined && !payload.clientSubCategory.trim()) {
+      throw new HttpError(400, "Client sub category is required");
+    }
+
     const lead = await this.prisma.lead.update({
       where: { id },
       data: {
         name: payload.name?.trim() || existing.name,
         email: payload.email === undefined ? existing.email : payload.email || null,
-        clientCategory: payload.clientCategory === undefined ? existing.clientCategory : payload.clientCategory ?? null,
+        clientCategory: payload.clientCategory === undefined ? existing.clientCategory : payload.clientCategory.trim(),
+        clientSubCategory: payload.clientSubCategory === undefined ? existing.clientSubCategory : payload.clientSubCategory.trim(),
         leadSource: payload.leadSource === undefined ? existing.leadSource : payload.leadSource ?? null,
         leadOwner: payload.leadOwner ?? existing.leadOwner,
         addedBy: payload.addedBy ?? existing.addedBy,
@@ -284,6 +387,12 @@ export class LeadService {
         companyAddress: payload.companyAddress === undefined ? existing.companyAddress : payload.companyAddress ?? null
       }
     });
+
+    try {
+      await this.clientServiceClient.ensureCategoryMetadata(lead.clientCategory, lead.clientSubCategory, authorizationHeader);
+    } catch {
+      // Keep lead updates stable even if client-service metadata sync is unavailable.
+    }
 
     return this.enrichLead(lead);
   }
@@ -1348,19 +1457,22 @@ export class LeadService {
 
   async addLeadNote(leadId: number, payload: NotePayload, auth: AuthContext) {
     await this.getLeadById(leadId, auth);
+    const normalized = this.normalizeNotePayload(payload);
 
-    return this.prisma.leadNote.create({
+    const created = await this.prisma.leadNote.create({
       data: {
         leadId,
-        note: payload.note.trim(),
+        note: this.serializeNotePayload(normalized),
         employeeId: auth.userId
       }
     });
+    return this.mapLeadNoteResponse(created);
   }
 
   async getLeadNotes(leadId: number, auth: AuthContext) {
     await this.getLeadById(leadId, auth);
-    return this.prisma.leadNote.findMany({ where: { leadId }, orderBy: { id: "desc" } });
+    const notes = await this.prisma.leadNote.findMany({ where: { leadId }, orderBy: { id: "desc" } });
+    return notes.map((note) => this.mapLeadNoteResponse(note));
   }
 
   async updateLeadNote(leadId: number, noteId: number, payload: NotePayload, auth: AuthContext) {
@@ -1375,10 +1487,13 @@ export class LeadService {
       throw new HttpError(403, "You cannot update this note");
     }
 
-    return this.prisma.leadNote.update({
+    const normalized = this.normalizeNotePayload(payload);
+
+    const updated = await this.prisma.leadNote.update({
       where: { id: noteId },
-      data: { note: payload.note.trim() }
+      data: { note: this.serializeNotePayload(normalized) }
     });
+    return this.mapLeadNoteResponse(updated);
   }
 
   async deleteLeadNote(leadId: number, noteId: number, auth: AuthContext) {
@@ -1398,19 +1513,22 @@ export class LeadService {
 
   async addDealNote(dealId: number, payload: NotePayload, auth: AuthContext) {
     await this.getDealById(dealId, auth);
+    const normalized = this.normalizeNotePayload(payload);
 
-    return this.prisma.dealNote.create({
+    const created = await this.prisma.dealNote.create({
       data: {
         dealId,
-        note: payload.note.trim(),
+        note: this.serializeNotePayload(normalized),
         employeeId: auth.userId
       }
     });
+    return this.mapDealNoteResponse(created);
   }
 
   async getDealNotes(dealId: number, auth: AuthContext) {
     await this.getDealById(dealId, auth);
-    return this.prisma.dealNote.findMany({ where: { dealId }, orderBy: { id: "desc" } });
+    const notes = await this.prisma.dealNote.findMany({ where: { dealId }, orderBy: { id: "desc" } });
+    return notes.map((note) => this.mapDealNoteResponse(note));
   }
 
   async updateDealNote(dealId: number, noteId: number, payload: NotePayload, auth: AuthContext) {
@@ -1425,10 +1543,13 @@ export class LeadService {
       throw new HttpError(403, "You cannot update this note");
     }
 
-    return this.prisma.dealNote.update({
+    const normalized = this.normalizeNotePayload(payload);
+
+    const updated = await this.prisma.dealNote.update({
       where: { id: noteId },
-      data: { note: payload.note.trim() }
+      data: { note: this.serializeNotePayload(normalized) }
     });
+    return this.mapDealNoteResponse(updated);
   }
 
   async deleteDealNote(dealId: number, noteId: number, auth: AuthContext) {
@@ -1660,6 +1781,7 @@ export class LeadService {
     name: string;
     email: string | null;
     clientCategory: string | null;
+    clientSubCategory: string | null;
     leadSource: string | null;
     leadOwner: string;
     addedBy: string;
