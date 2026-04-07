@@ -260,20 +260,54 @@ export class ClientService {
 
   async createCategory(name: string) {
     validateRequired(name, "Category name is required");
-    return this.prisma.clientCategory.create({ data: { name: name.trim() } });
+    const trimmed = name.trim();
+    const existing = await this.prisma.clientCategory.findFirst({
+      where: { name: { equals: trimmed, mode: "insensitive" } }
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.prisma.clientCategory.create({ data: { name: trimmed } });
   }
 
-  async createSubCategory(name: string) {
+  async createSubCategory(name: string, categoryId?: number | null, categoryName?: string | null) {
     validateRequired(name, "Subcategory name is required");
-    return this.prisma.clientSubCategory.create({ data: { name: name.trim() } });
+    const trimmed = name.trim();
+    const resolvedCategory = await this.resolveClientCategory(categoryId, categoryName);
+    const resolvedCategoryId = resolvedCategory?.id ?? null;
+    const existing = await this.prisma.clientSubCategory.findFirst({
+      where: {
+        categoryId: resolvedCategoryId,
+        name: { equals: trimmed, mode: "insensitive" }
+      },
+      include: { category: true }
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.prisma.clientSubCategory.create({
+      data: {
+        name: trimmed,
+        categoryId: resolvedCategoryId
+      },
+      include: { category: true }
+    });
   }
 
   async listCategories() {
     return this.prisma.clientCategory.findMany({ orderBy: { id: "asc" } });
   }
 
-  async listSubCategories() {
-    return this.prisma.clientSubCategory.findMany({ orderBy: { id: "asc" } });
+  async listSubCategories(categoryId?: number | null) {
+    return this.prisma.clientSubCategory.findMany({
+      where: categoryId ? { categoryId } : undefined,
+      include: { category: true },
+      orderBy: { id: "asc" }
+    });
   }
 
   async deleteCategory(id: number) {
@@ -284,6 +318,28 @@ export class ClientService {
   async deleteSubCategory(id: number) {
     await this.prisma.clientSubCategory.delete({ where: { id } });
     return { message: "SUCCESS" };
+  }
+
+  private async resolveClientCategory(categoryId?: number | null, categoryName?: string | null) {
+    if (categoryId) {
+      const category = await this.prisma.clientCategory.findUnique({ where: { id: categoryId } });
+      if (!category) {
+        throw new HttpError(404, "Category not found");
+      }
+      return category;
+    }
+
+    if (categoryName?.trim()) {
+      const category = await this.prisma.clientCategory.findFirst({
+        where: { name: { equals: categoryName.trim(), mode: "insensitive" } }
+      });
+      if (!category) {
+        throw new HttpError(404, "Category not found");
+      }
+      return category;
+    }
+
+    return null;
   }
 
   async addNote(clientId: number, dto: { title: string; detail: string; type?: string | null }, createdBy: string) {

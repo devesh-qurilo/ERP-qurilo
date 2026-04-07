@@ -29,41 +29,62 @@ export class ClientServiceClient {
   }
 
   async ensureCategoryMetadata(category: string | null, subCategory: string | null, authorizationHeader?: string): Promise<void> {
+    let categoryId: number | null = null;
+    const categoryName = category?.trim() ?? "";
+    const subCategoryName = subCategory?.trim() ?? "";
+
     if (category?.trim()) {
       const categoriesResponse = await fetch(`${this.clientServiceUrl}/clients/category`, {
         headers: this.authHeaders(authorizationHeader)
       });
 
       if (categoriesResponse.ok) {
-        const categories = (await categoriesResponse.json()) as Array<{ name?: string; categoryName?: string }>;
-        const exists = categories.some((item) => {
+        const categories = (await categoriesResponse.json()) as Array<{ id?: number; name?: string; categoryName?: string }>;
+        const existing = categories.find((item) => {
           const value = item.categoryName ?? item.name ?? "";
-          return value.trim().toLowerCase() === category.trim().toLowerCase();
+          return value.trim().toLowerCase() === categoryName.toLowerCase();
         });
 
-        if (!exists) {
-          await fetch(`${this.clientServiceUrl}/clients/category`, {
+        if (existing?.id) {
+          categoryId = existing.id;
+        } else {
+          const createdResponse = await fetch(`${this.clientServiceUrl}/clients/category`, {
             method: "POST",
             headers: {
               ...this.authHeaders(authorizationHeader),
               "content-type": "application/json"
             },
-            body: JSON.stringify({ categoryName: category.trim() })
+            body: JSON.stringify({ categoryName, name: categoryName })
           });
+
+          if (createdResponse.ok) {
+            const created = (await createdResponse.json()) as { id?: number };
+            categoryId = created.id ?? null;
+          }
         }
       }
     }
 
-    if (subCategory?.trim()) {
-      const subCategoriesResponse = await fetch(`${this.clientServiceUrl}/clients/category/subcategory`, {
+    if (subCategoryName) {
+      const subCategoryUrl = categoryId
+        ? `${this.clientServiceUrl}/clients/category/subcategory?categoryId=${encodeURIComponent(String(categoryId))}`
+        : `${this.clientServiceUrl}/clients/category/subcategory`;
+      const subCategoriesResponse = await fetch(subCategoryUrl, {
         headers: this.authHeaders(authorizationHeader)
       });
 
       if (subCategoriesResponse.ok) {
-        const subCategories = (await subCategoriesResponse.json()) as Array<{ name?: string; subCategoryName?: string }>;
+        const subCategories = (await subCategoriesResponse.json()) as Array<{
+          name?: string;
+          subCategoryName?: string;
+          categoryId?: number | null;
+          categoryName?: string | null;
+        }>;
         const exists = subCategories.some((item) => {
           const value = item.subCategoryName ?? item.name ?? "";
-          return value.trim().toLowerCase() === subCategory.trim().toLowerCase();
+          const sameName = value.trim().toLowerCase() === subCategoryName.toLowerCase();
+          const sameCategory = categoryId ? item.categoryId === categoryId : true;
+          return sameName && sameCategory;
         });
 
         if (!exists) {
@@ -73,7 +94,12 @@ export class ClientServiceClient {
               ...this.authHeaders(authorizationHeader),
               "content-type": "application/json"
             },
-            body: JSON.stringify({ subCategoryName: subCategory.trim() })
+            body: JSON.stringify({
+              subCategoryName,
+              name: subCategoryName,
+              categoryId,
+              categoryName: categoryName || undefined
+            })
           });
         }
       }

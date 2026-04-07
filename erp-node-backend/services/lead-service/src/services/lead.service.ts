@@ -19,7 +19,7 @@ export interface LeadPayload {
   autoConvertToClient?: boolean;
   companyName?: string;
   officialWebsite?: string;
-  mobileNumber?: string;
+  mobileNumber?: string | number;
   officePhone?: string;
   city?: string;
   state?: string;
@@ -229,15 +229,18 @@ export class LeadService {
       throw new HttpError(400, "Client sub category is required");
     }
 
-    if (payload.email) {
-      const existingByEmail = await this.prisma.lead.findUnique({ where: { email: payload.email } });
+    const email = normalizeNullableText(payload.email)?.toLowerCase();
+    const mobileNumber = normalizeNullableText(payload.mobileNumber);
+
+    if (email) {
+      const existingByEmail = await this.prisma.lead.findUnique({ where: { email } });
       if (existingByEmail) {
         throw new HttpError(409, "Lead with this email already exists");
       }
     }
 
-    if (payload.mobileNumber) {
-      const existingByMobile = await this.prisma.lead.findUnique({ where: { mobileNumber: payload.mobileNumber } });
+    if (mobileNumber) {
+      const existingByMobile = await this.prisma.lead.findUnique({ where: { mobileNumber } });
       if (existingByMobile) {
         throw new HttpError(409, "Lead with this mobile number already exists");
       }
@@ -246,7 +249,7 @@ export class LeadService {
     const lead = await this.prisma.lead.create({
       data: {
         name: payload.name.trim(),
-        email: payload.email?.trim() || null,
+        email,
         clientCategory: payload.clientCategory.trim(),
         clientSubCategory: payload.clientSubCategory.trim(),
         leadSource: payload.leadSource ?? null,
@@ -256,7 +259,7 @@ export class LeadService {
         autoConvertToClient: Boolean(payload.autoConvertToClient),
         companyName: payload.companyName ?? null,
         officialWebsite: payload.officialWebsite ?? null,
-        mobileNumber: payload.mobileNumber ?? null,
+        mobileNumber,
         officePhone: payload.officePhone ?? null,
         city: payload.city ?? null,
         state: payload.state ?? null,
@@ -334,16 +337,19 @@ export class LeadService {
       throw new HttpError(404, "Lead not found");
     }
 
-    if (payload.email && payload.email !== existing.email) {
-      const duplicate = await this.prisma.lead.findUnique({ where: { email: payload.email } });
-      if (duplicate) {
+    const nextEmail = payload.email === undefined ? existing.email : normalizeNullableText(payload.email)?.toLowerCase();
+    const nextMobileNumber = payload.mobileNumber === undefined ? existing.mobileNumber : normalizeNullableText(payload.mobileNumber);
+
+    if (nextEmail && nextEmail !== existing.email?.toLowerCase()) {
+      const duplicate = await this.prisma.lead.findUnique({ where: { email: nextEmail } });
+      if (duplicate && duplicate.id !== id) {
         throw new HttpError(409, "Lead with this email already exists");
       }
     }
 
-    if (payload.mobileNumber && payload.mobileNumber !== existing.mobileNumber) {
-      const duplicate = await this.prisma.lead.findUnique({ where: { mobileNumber: payload.mobileNumber } });
-      if (duplicate) {
+    if (nextMobileNumber && nextMobileNumber !== existing.mobileNumber) {
+      const duplicate = await this.prisma.lead.findUnique({ where: { mobileNumber: nextMobileNumber } });
+      if (duplicate && duplicate.id !== id) {
         throw new HttpError(409, "Lead with this mobile number already exists");
       }
     }
@@ -368,7 +374,7 @@ export class LeadService {
       where: { id },
       data: {
         name: payload.name?.trim() || existing.name,
-        email: payload.email === undefined ? existing.email : payload.email || null,
+        email: nextEmail ?? null,
         clientCategory: payload.clientCategory === undefined ? existing.clientCategory : payload.clientCategory.trim(),
         clientSubCategory: payload.clientSubCategory === undefined ? existing.clientSubCategory : payload.clientSubCategory.trim(),
         leadSource: payload.leadSource === undefined ? existing.leadSource : payload.leadSource ?? null,
@@ -378,7 +384,7 @@ export class LeadService {
         autoConvertToClient: payload.autoConvertToClient ?? existing.autoConvertToClient,
         companyName: payload.companyName === undefined ? existing.companyName : payload.companyName ?? null,
         officialWebsite: payload.officialWebsite === undefined ? existing.officialWebsite : payload.officialWebsite ?? null,
-        mobileNumber: payload.mobileNumber === undefined ? existing.mobileNumber : payload.mobileNumber ?? null,
+        mobileNumber: nextMobileNumber ?? null,
         officePhone: payload.officePhone === undefined ? existing.officePhone : payload.officePhone ?? null,
         city: payload.city === undefined ? existing.city : payload.city ?? null,
         state: payload.state === undefined ? existing.state : payload.state ?? null,
@@ -2094,6 +2100,15 @@ function normalizeHeaderKey(header: string): string {
 
 function safeTrim(value: string | null | undefined): string | null {
   return value == null ? null : value.trim();
+}
+
+function normalizeNullableText(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+
+  const trimmed = String(value).trim();
+  return trimmed || null;
 }
 
 function normalizeMobileDigits(mobile: string | null | undefined): string | null {

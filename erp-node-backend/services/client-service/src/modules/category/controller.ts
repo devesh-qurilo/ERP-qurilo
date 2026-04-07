@@ -12,7 +12,8 @@ export async function handleCategoryRoutes(
   service: ClientService,
   config: ClientConfig
 ): Promise<boolean> {
-  const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+  const url = new URL(request.url ?? "/", "http://localhost");
+  const pathname = url.pathname;
 
   try {
     if (request.method === "POST" && pathname === "/clients/category") {
@@ -26,7 +27,11 @@ export async function handleCategoryRoutes(
     if (request.method === "POST" && pathname === "/clients/category/subcategory") {
       requireAdmin(getAuthContext(request.headers.authorization, config.jwtSecret));
       const body = await readJsonBody<unknown>(request);
-      const created = await service.createSubCategory(extractSubCategoryName(body));
+      const created = await service.createSubCategory(
+        extractSubCategoryName(body),
+        extractCategoryId(body),
+        extractCategoryNameForSubCategory(body)
+      );
       sendJson(response, 200, mapSubCategoryResponse(created));
       return true;
     }
@@ -37,7 +42,7 @@ export async function handleCategoryRoutes(
     }
 
     if (request.method === "GET" && pathname === "/clients/category/subcategory") {
-      sendJson(response, 200, (await service.listSubCategories()).map(mapSubCategoryResponse));
+      sendJson(response, 200, (await service.listSubCategories(extractCategoryIdFromSearch(url))).map(mapSubCategoryResponse));
       return true;
     }
 
@@ -67,10 +72,18 @@ function mapCategoryResponse(category: { id: number; name: string; createdAt: Da
   };
 }
 
-function mapSubCategoryResponse(subCategory: { id: number; name: string; createdAt: Date; updatedAt: Date }) {
+function mapSubCategoryResponse(subCategory: {
+  id: number;
+  name: string;
+  categoryId?: number | null;
+  category?: { id: number; name: string } | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
   return {
     ...subCategory,
-    subCategoryName: subCategory.name
+    subCategoryName: subCategory.name,
+    categoryName: subCategory.category?.name ?? null
   };
 }
 
@@ -106,6 +119,31 @@ function extractSubCategoryName(body: unknown): string {
   }
 
   return "";
+}
+
+function extractCategoryId(body: unknown): number | null {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+
+  const payload = body as Record<string, unknown>;
+  const value = payload.categoryId;
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function extractCategoryNameForSubCategory(body: unknown): string {
+  if (!body || typeof body !== "object") {
+    return "";
+  }
+
+  const payload = body as Record<string, unknown>;
+  return firstString(payload.categoryName, payload.category);
+}
+
+function extractCategoryIdFromSearch(url: URL): number | null {
+  const parsed = Number(url.searchParams.get("categoryId"));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function firstString(...values: unknown[]): string {
