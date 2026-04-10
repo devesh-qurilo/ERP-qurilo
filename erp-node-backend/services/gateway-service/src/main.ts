@@ -141,7 +141,9 @@ function resolveUpstreamUrl(requestUrl: URL, target: string): URL {
     "/auth/health": "/health",
     "/employee/health": "/health",
     "/clients/health": "/health",
-    "/leads/health": "/health"
+    "/leads/health": "/health",
+    "/projects/health": "/health",
+    "/api/projects/health": "/health"
   };
 
   const rewrittenPath = healthAliases[requestUrl.pathname] ?? `${requestUrl.pathname}${requestUrl.search}`;

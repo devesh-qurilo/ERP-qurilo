@@ -30,14 +30,24 @@ export function getGatewayConfig(): GatewayConfig {
       { prefix: "/leads", target: getString("LEAD_SERVICE_URL") },
       { prefix: "/deals", target: getString("LEAD_SERVICE_URL") },
       { prefix: "/stages", target: getString("LEAD_SERVICE_URL") },
-      { prefix: "/projects", target: getString("PROJECT_SERVICE_URL") },
       { prefix: "/api/projects", target: getString("PROJECT_SERVICE_URL") },
+      { prefix: "/projects", target: getString("PROJECT_SERVICE_URL") },
+      { prefix: "/files", target: getString("PROJECT_SERVICE_URL") },
+      { prefix: "/notes", target: getString("PROJECT_SERVICE_URL") },
+      { prefix: "/timesheets", target: getString("PROJECT_SERVICE_URL") },
+      { prefix: "/status", target: getString("PROJECT_SERVICE_URL") },
+      { prefix: "/task", target: getString("PROJECT_SERVICE_URL") },
+      { prefix: "/task-categories", target: getString("PROJECT_SERVICE_URL") },
+      { prefix: "/tasks", target: getString("PROJECT_SERVICE_URL") },
+      { prefix: "/api/labels", target: getString("PROJECT_SERVICE_URL") },
       { prefix: "/api/chat", target: getString("CHAT_SERVICE_URL") },
       { prefix: "/api/invoices", target: getString("FINANCE_SERVICE_URL") },
       { prefix: "/api/payments", target: getString("FINANCE_SERVICE_URL") },
-      { prefix: "/api/payment-gateways", target: getString("FINANCE_SERVICE_URL") },
-      { prefix: "/api/invoice", target: getString("FINANCE_SERVICE_URL") }
-    ]
+      {
+        prefix: "/api/payment-gateways",
+        target: getString("FINANCE_SERVICE_URL"),
+      },
+      { prefix: "/api/invoice", target: getString("FINANCE_SERVICE_URL") },
+    ],
   };
 }
-

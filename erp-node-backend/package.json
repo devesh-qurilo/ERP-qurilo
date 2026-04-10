@@ -13,6 +13,7 @@
     "dev:client": "npm run dev -w @erp/client-service",
     "dev:lead": "npm run dev -w @erp/lead-service",
     "dev:employee": "npm run dev -w @erp/employee-service",
+    "dev:project": "npm run dev -w @erp/project-service",
     "lint": "npm run lint --workspaces",
     "test": "npm run test --workspaces"
   },

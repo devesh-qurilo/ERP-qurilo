@@ -1,0 +1,349 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PROJECT_DATABASE_URL")
+}
+
+enum ProjectStatus {
+  IN_PROGRESS
+  NOT_STARTED
+  ON_HOLD
+  CANCELLED
+  FINISHED
+}
+
+enum MilestoneStatus {
+  COMPLETED
+  INCOMPLETE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum DiscussionMessageType {
+  TEXT
+  FILE
+}
+
+model ProjectCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id                            Int                @id @default(autoincrement())
+  shortCode                     String             @unique
+  name                          String
+  startDate                     DateTime?
+  deadline                      DateTime?
+  noDeadline                    Boolean            @default(false)
+  category                      String?
+  department                    String?
+  clientId                      String?
+  summary                       String?
+  tasksNeedAdminApproval        Boolean            @default(false)
+  currency                      String?
+  budget                        Decimal?           @db.Decimal(19, 2)
+  hoursEstimate                 Int?
+  allowManualTimeLogs           Boolean            @default(false)
+  addedBy                       String?
+  assignedEmployeeIds           String[]
+  projectAdminId                String?
+  projectStatus                 ProjectStatus      @default(NOT_STARTED)
+  progressPercent               Int                @default(0)
+  calculateProgressThroughTasks Boolean            @default(false)
+  cachedTotalTimeLogged         Int?
+  cachedExpenses                Decimal?           @db.Decimal(19, 2)
+  cachedProfit                  Decimal?           @db.Decimal(19, 2)
+  createdBy                     String?
+  updatedBy                     String?
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
+  milestones                    ProjectMilestone[]
+  files                         FileMeta[]
+  notes                         ProjectNote[]
+  activities                    ProjectActivity[]
+  userStates                    ProjectUserState[]
+  tasks                         Task[]
+  timeLogs                      TimeLog[]
+  discussionRooms               DiscussionRoom[]
+
+  @@index([shortCode])
+  @@index([projectStatus])
+}
+
+model ProjectUserState {
+  id         Int       @id @default(autoincrement())
+  projectId   Int
+  employeeId String
+  pinned     Boolean   @default(false)
+  pinnedAt   DateTime?
+  archived   Boolean   @default(false)
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, employeeId])
+  @@index([employeeId])
+}
+
+model ProjectActivity {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  type      String
+  message   String
+  actorId   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+model ProjectMilestone {
+  id            Int             @id @default(autoincrement())
+  projectId      Int
+  title         String
+  milestoneCost Decimal?        @db.Decimal(19, 2)
+  status        MilestoneStatus @default(INCOMPLETE)
+  summary       String?
+  startDate     DateTime?
+  endDate       DateTime?
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  files         FileMeta[]
+  tasks         Task[]
+
+  @@index([projectId])
+}
+
+model TaskCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tasks     Task[]
+}
+
+model TaskStage {
+  id         Int      @id @default(autoincrement())
+  name       String
+  position   Int?
+  labelColor String?
+  projectId  Int?
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tasks      Task[]
+
+  @@index([projectId])
+}
+
+model Label {
+  id          Int      @id @default(autoincrement())
+  name        String
+  colorCode   String?
+  projectId   Int?
+  projectName String?
+  description String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tasks       Task[]
+
+  @@index([projectId])
+}
+
+model Task {
+  id                  Int               @id @default(autoincrement())
+  title               String
+  projectId           Int
+  categoryId          Int?
+  startDate           DateTime?
+  dueDate             DateTime?
+  noDueDate           Boolean           @default(false)
+  taskStageId         Int?
+  hoursLoggedMinutes  Int               @default(0)
+  completedOn         DateTime?
+  assignedEmployeeIds String[]
+  description         String?
+  milestoneId         Int?
+  priority            TaskPriority      @default(MEDIUM)
+  isPrivate           Boolean           @default(false)
+  timeEstimate        Boolean           @default(false)
+  timeEstimateMinutes Int?
+  isDependent         Boolean           @default(false)
+  dependentTaskId     Int?
+  duplicateOfTaskId   Int?
+  statusEnum          String?
+  approvedByAdmin     Boolean           @default(false)
+  approvedAt          DateTime?
+  approvedBy          String?
+  createdBy           String?
+  updatedBy           String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  project             Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category            TaskCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  taskStage           TaskStage?        @relation(fields: [taskStageId], references: [id], onDelete: SetNull)
+  milestone           ProjectMilestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  labels              Label[]
+  files               FileMeta[]
+  notes               TaskNote[]
+  subtasks            Subtask[]
+  timeLogs            TimeLog[]
+
+  @@index([projectId])
+  @@index([taskStageId])
+}
+
+model FileMeta {
+  id              Int               @id @default(autoincrement())
+  projectId        Int?
+  taskId          Int?
+  milestoneId     Int?
+  recurringTaskId Int?
+  filename        String
+  bucket          String
+  path            String
+  url             String?
+  mimeType        String?
+  size            Int?
+  objectKey       String?
+  uploadedBy      String?
+  createdAt       DateTime          @default(now())
+  project         Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task            Task?             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  milestone       ProjectMilestone? @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+}
+
+model ProjectNote {
+  id              Int      @id @default(autoincrement())
+  projectId        Int
+  title           String?
+  content         String?
+  isPublic        Boolean  @default(true)
+  ownerEmployeeId String?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model TaskNote {
+  id              Int      @id @default(autoincrement())
+  taskId          Int
+  title           String?
+  content         String?
+  isPublic        Boolean  @default(true)
+  ownerEmployeeId String?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  task            Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model Subtask {
+  id          Int      @id @default(autoincrement())
+  taskId      Int
+  title       String
+  description String?
+  isDone      Boolean  @default(false)
+  createdBy   String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model TimeLog {
+  id            Int      @id @default(autoincrement())
+  projectId      Int?
+  taskId        Int?
+  employeeId    String
+  startDate     DateTime
+  startTime     String?
+  endDate       DateTime?
+  endTime       String?
+  memo          String?
+  durationHours Float?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  task          Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([projectId])
+  @@index([taskId])
+}
+
+model DiscussionCategory {
+  id           Int              @id @default(autoincrement())
+  categoryName String
+  colorCode    String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  rooms        DiscussionRoom[]
+}
+
+model DiscussionRoom {
+  id          Int                 @id @default(autoincrement())
+  title       String
+  projectId    Int
+  categoryId  Int?
+  createdBy   String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  isActive    Boolean             @default(true)
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category    DiscussionCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  messages    DiscussionMessage[]
+
+  @@index([projectId])
+}
+
+model DiscussionMessage {
+  id              Int                   @id @default(autoincrement())
+  roomId          Int
+  parentMessageId Int?
+  senderId        String
+  content         String?
+  messageType     DiscussionMessageType @default(TEXT)
+  filePath        String?
+  fileUrl         String?
+  fileName        String?
+  fileSize        Int?
+  mimeType        String?
+  isDeleted       Boolean               @default(false)
+  deletedBy       String?
+  isBestReply     Boolean               @default(false)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  room            DiscussionRoom        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  parentMessage   DiscussionMessage?    @relation("DiscussionReplies", fields: [parentMessageId], references: [id], onDelete: Cascade)
+  replies         DiscussionMessage[]   @relation("DiscussionReplies")
+
+  @@index([roomId, createdAt])
+  @@index([parentMessageId])
+}

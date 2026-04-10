@@ -140,5 +140,34 @@ services:
     ports:
       - "8085:8085"
 
+  project-service:
+    build:
+      context: .
+      dockerfile: services/project-service/Dockerfile
+    container_name: erp-node-project-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      employee-service:
+        condition: service_started
+      client-service:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      PROJECT_PORT: 8086
+      PROJECT_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/erp_project?schema=public
+      JWT_SECRET: ${JWT_SECRET:-replace-me}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-replace-me}
+      EMPLOYEE_SERVICE_URL: http://employee-service:8083
+      CLIENT_SERVICE_URL: http://client-service:8084
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-replace-me}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-replace-me}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-replace-me}
+      CLOUDINARY_UPLOAD_FOLDER: ${CLOUDINARY_UPLOAD_FOLDER:-erp}
+    ports:
+      - "8086:8086"
+
 volumes:
   postgres_data:
